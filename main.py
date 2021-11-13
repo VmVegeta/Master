@@ -5,7 +5,7 @@ from Models.RNN import handle_station_dnn, handle_all_station_dnn
 
 def main():
     measurements = read_measurements(use_first=True)
-    # keras.backend.clear_session()
+
     handle_all_station_dnn(measurements)
     exit(0)
 

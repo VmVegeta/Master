@@ -1,12 +1,13 @@
 import csv
+from typing import Dict, List
 from measure import Measure
 
 
-def read_measurements(use_first=False):
+def read_measurements(use_first=False, filename="data/Hourly_NO2_referencedata_for_Oslo.csv") -> Dict[str, List[Measure]]:
     measurements = {}
     current_measurement = None
     first = False
-    with open("data/Hourly_NO2_referencedata_for_Oslo.csv", mode="r", encoding="utf-8") as f:
+    with open(filename, mode="r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             if row["QCFlagType(0=OK)"] != '0':
