@@ -46,6 +46,7 @@ def build_simple_matrix(data: List[Measure], hours: int, include_low_cost=False)
     true_value = []
     for index, measure in enumerate(data):
         result = get_result_values(data, measure, index, index + hours, hours)
+
         if result is None:
             continue
         if include_low_cost:
@@ -55,6 +56,7 @@ def build_simple_matrix(data: List[Measure], hours: int, include_low_cost=False)
                            measure.month,
                            measure.day,
                            measure.year,
+                           measure.station_type,
                            measure.is_low_cost])
         else:
             matrix.append([measure.value,
@@ -62,7 +64,27 @@ def build_simple_matrix(data: List[Measure], hours: int, include_low_cost=False)
                            measure.hour,
                            measure.month,
                            measure.day,
-                           measure.year])
+                           measure.year,
+                           measure.station_type])
+        true_value.append(result)
+    return matrix, true_value
+
+
+def build_weather_matrix(data: List[Measure], hours: int, weather_data: List[str]):
+    matrix = []
+    true_value = []
+    for index, measure in enumerate(data):
+        result = get_result_values(data, measure, index, index + hours, hours)
+        rain = float(weather_data[index])
+        if result is None:
+            continue
+        matrix.append([measure.value,
+                       measure.weekday,
+                       measure.hour,
+                       measure.month,
+                       measure.day,
+                       measure.year,
+                       rain])
         true_value.append(result)
     return matrix, true_value
 

@@ -1,0 +1,11 @@
+{
+  "files" : [
+    {
+      "name": "464_osm_zoom_17.jpg", "augmentation" : "affineRandom", "delta_pixel" : 112
+    },
+    {
+      "name": "7_osm_zoom_17.jpg"  , "augmentation" : "affineRandom", "delta_pixel" : 112
+    }
+  ],
+  "workdir" : ""
+}

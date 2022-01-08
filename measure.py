@@ -10,6 +10,8 @@ class Measure:
         self.longitude = float(longitude)
         self.latitude = float(latitude)
         if station_type is None:
+            print('.')
+            self.station_type = 0
             self.year = int(year)
             self.month = int(month)
             self.day = int(day)
@@ -17,7 +19,10 @@ class Measure:
             self.is_low_cost = 1
             self.datetime = datetime.datetime(self.year, self.month, self.day, self.hour)
         else:
-            self.station_type = station_type
+            if station_type == 'Near Road station':
+                self.station_type = 1
+            else:
+                self.station_type = 0
             date_time = self.get_date_time(date)
             self.datetime = date_time
             self.day = date_time.day

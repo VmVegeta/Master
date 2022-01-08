@@ -1,0 +1,27 @@
+{
+  "file" : {"name" : ""},
+  "tile" : [
+              {
+                  "name": "osm",
+                  "zoom": "17"
+               },
+               {
+                  "name": "osm",
+                  "zoom": "19"
+               },
+               {
+                   "name": "l_adt",
+                   "zoom": "17"
+               },
+               {
+                   "name": "h_adt",
+                   "zoom": "17"
+               },
+               {
+                   "name": "b_adt",
+                   "zoom": "17"
+               }
+           ],
+  "augmentation" : {"augmentation" : "affineRandom", "delta_pixel" : 112},
+  "workdir" : ""
+}

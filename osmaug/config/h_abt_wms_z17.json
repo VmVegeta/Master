@@ -1,0 +1,58 @@
+{
+  "points" : [
+    {
+      "ID": "1", "coords" : [59.92773,10.84633],   "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "2"  , "coords" : [59.9211,10.83363], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "3"  , "coords" : [59.914106,10.82263], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "4"  , "coords" : [59.91898,10.69707], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "5"  , "coords" : [59.92556,10.850367], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "6"  , "coords" : [59.91487,10.763], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "7"  , "coords" : [59.91132,10.70407], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "8"  , "coords" : [59.93233,10.72447], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "9"  , "coords" : [59.903095,10.758408], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "10"  , "coords" : [59.902826,10.758298], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "11"  , "coords" : [59.89869,10.81495], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "12"  , "coords" : [59.93255,10.66984], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "13"  , "coords" : [59.92295,10.76573], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    },
+    {
+      "ID": "14"  , "coords" : [59.912001,10.767426], "conv_crs"    : "+proj=utm +zone=32V, +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs", "delta_meters" : 100
+    }
+  ],
+  "zoom" : 17,
+  "source" : {
+      "name": "h_adt",
+      "type" : "wms",
+      "url" : "https://geoserver.nilu.no/geoserver/wms",
+      "layers" : "MaaS:Vehicle_ADT_2019",
+      "styles" : "h_adt",
+      "fmt" : "image/png",
+      "transparent" : "False",
+      "cql_filter" : "1=1"
+  },
+  "driver_bin" : ""
+}
