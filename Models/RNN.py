@@ -2,13 +2,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import os
-from BuildMatrix import build_simple_matrix, build_simple_only_prev_matrix, shuffle_data, create_set
+from matrixes.BuildMatrix import build_simple_matrix, build_simple_only_prev_matrix, shuffle_data, create_set
 
 from tensorflow import keras
 from tensorflow.keras import layers
-from tensorflow.keras.layers.experimental import preprocessing
 from keras import backend as K
-from sklearn.preprocessing import MinMaxScaler
 
 
 def coeff_determination(y_true, y_pred):

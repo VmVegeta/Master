@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.neural_network import MLPRegressor
 from sklearn.tree import DecisionTreeRegressor
 
-from BuildMatrix import build_simple_matrix, shuffle_data, create_set, build_simple_prev_matrix
+from matrixes.BuildMatrix import build_simple_matrix, shuffle_data, create_set, build_simple_prev_matrix
 from measure import Measure
 from collections import defaultdict
 from sklearn import linear_model

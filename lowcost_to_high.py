@@ -5,11 +5,10 @@ from typing import List
 from readers.ReadMeasurments import read_measurements
 from readers.ReadLowcost import read_low_cost
 from measure import Measure
-from BuildMatrix import create_set
+from matrixes.BuildMatrix import create_set
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.layers.experimental import preprocessing
-from tools.plot import plot_loss
 from tools.custom_evaluation import coeff_determination
 
 

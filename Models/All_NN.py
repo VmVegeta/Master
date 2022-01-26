@@ -1,7 +1,8 @@
 import numpy as np
 import tensorflow as tf
 import os
-from BuildMatrix import build_simple_matrix, shuffle_data, create_set, build_weather_matrix
+from matrixes.BuildMatrix import build_simple_matrix, create_set, build_weather_matrix
+from matrixes.build_parallel_matrix import build_parallel_matrix, build_closes_parallel_matrix
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.layers.experimental import preprocessing
@@ -26,7 +27,6 @@ def base_dnn(matrix, true_value, hours=6, set_size=0.7, use_checkpoint=False, lo
           layers.Dense(64, activation='relu'),
           layers.Dropout(0.2),
           layers.Dense(64, activation='relu'),
-          layers.Dense(64, activation='relu'),
           #layers.Dropout(0.2),
           layers.Dense(hours)
           #,layers.Lambda(lambda x: tf.where(x < 0, tf.zeros_like(x), x), trainable=False)
@@ -41,7 +41,7 @@ def base_dnn(matrix, true_value, hours=6, set_size=0.7, use_checkpoint=False, lo
     print(x_train.shape)
     model.build(x_train.shape)
     model.summary()
-    callbacks = [keras.callbacks.EarlyStopping(monitor='val_loss', patience=100)]
+    callbacks = [keras.callbacks.EarlyStopping(monitor='val_loss', patience=250)]
 
     if use_checkpoint is True:
         checkpoint_path = "checkpoints/nn_all3x64.ckpt"
@@ -104,3 +104,13 @@ def predict_all_stations_individually(station_data, hours=6, set_size=0.7):
         print(station_name)
         station_matrix, station_true_value = build_simple_matrix(station_data[station_name], hours)
         print(output[0].evaluate(station_matrix, station_true_value, verbose=0))
+
+
+def predict_parallel(station_data, station_name: str):
+    matrix, true_values = build_parallel_matrix(station_data, station_name)
+    base_dnn(matrix, true_values, 1)
+
+
+def predict_parallel_closes(station_data, station_name: str):
+    matrix, true_values = build_closes_parallel_matrix(station_data, station_name)
+    base_dnn(matrix, true_values, 1)

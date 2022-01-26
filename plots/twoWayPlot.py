@@ -1,15 +1,13 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
-from IPython.display import display
 from readers.ReadMeasurments import read_measurements
-from BuildMatrix import build_weather_matrix
+from matrixes.BuildMatrix import build_weather_matrix
 import pandas as pd
 import numpy as np
 import datetime
 from tools import count_img_pixels
 from sklearn import linear_model
 from sklearn.preprocessing import PolynomialFeatures
-import statistics
 
 
 def main():
@@ -29,7 +27,7 @@ def main():
     #display(df)
 
 
-def test():
+def windspeed_hjortness():
     station_data = read_measurements(use_first=False, filename='../data/Hourly_NO2_referencedata_for_Oslo.csv')[
         'Hjortnes']
     f = open("../data/Hjortnes_windspeed.txt", "r")
@@ -54,7 +52,7 @@ def test():
     sns.pairplot(df,
                  x_vars=['wind'],
                  y_vars=['value'])
-    create_line(df['wind'].values, df['value'].values)
+    create_line(df['wind'].values, df['value'].values, degree=1)
     plt.show()
 
 
@@ -94,4 +92,4 @@ def create_line(x, y, degree=2):
 
 
 if __name__ == '__main__':
-    two_way_plot_driving()
+    windspeed_hjortness()
