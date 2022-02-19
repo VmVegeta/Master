@@ -1,7 +1,9 @@
 from typing import List
 from measure import Measure
+from matrixes.tools import get_difference_in_hours
 import numpy as np
 import random
+
 
 """
 @staticmethod
@@ -14,14 +16,6 @@ def add_bias(X):
         bias = np.ones((m, 1))
         return np.concatenate([bias, X], axis=1)
 """
-
-
-def get_difference_in_hours(measure: Measure, result: Measure):
-    measure_time = measure.datetime
-    result_time = result.datetime
-    diff = result_time - measure_time
-    seconds = diff.total_seconds()
-    return int(seconds / 60 / 60)
 
 
 def build_simple_matrix_np(data: List[Measure], hours: int):

@@ -1,11 +1,11 @@
 from readers.ReadMeasurments import read_measurements
-#from Models.RNN import handle_station_dnn, handle_all_station_dnn, predict_all_stations_individually
-from Models.All_NN import handle_all_station_dnn, predict_all_stations_individually, predict_parallel, predict_parallel_closes
+from Models.RNN import handle_station_dnn, handle_all_station_dnn, predict_all_stations_individually, predict_single_parallel, predict_parallel_all
+#from Models.All_NN import handle_all_station_dnn, predict_all_stations_individually, predict_parallel, predict_parallel_closes, predict_parallel_all
 
 
 def main():
     measurements = read_measurements(use_first=False)
-    predict_parallel_closes(measurements, 'Bygdøy Alle')
+    predict_parallel_all(measurements, 'Bygdøy Alle', 12)
     exit(0)
     handle_all_station_dnn(measurements)
     models = []
