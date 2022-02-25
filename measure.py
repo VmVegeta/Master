@@ -8,12 +8,13 @@ class Measure:
         if self.value < 0:
             self.value = 0
 
-        if station_id == 'Lohavn':
-            self.longitude = float(latitude)
-            self.latitude = float(longitude)
-        else:
-            self.longitude = float(longitude)
-            self.latitude = float(latitude)
+        if latitude != 'NULL':
+            if station_id == 'Lohavn':
+                self.longitude = float(latitude)
+                self.latitude = float(longitude)
+            else:
+                self.longitude = float(longitude)
+                self.latitude = float(latitude)
 
         if station_type is None:
             print('.')
