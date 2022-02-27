@@ -4,47 +4,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-from network_test.models import NnLayer
-from threading import Thread
-
-def on_new_client(clientsocket, addr):
-    while True:
-        msg = clientsocket.recv(1024)
-        #do some checks and if msg == someWeirdSignal: break:
-        print(addr, ' >> ', msg)
-        #msg = raw_input('SERVER >> ')
-        #Maybe some code to compute the last digit of PI, play game or anything else can go here and when you are done.
-        clientsocket.send(msg)
-    clientsocket.close()
-
-class CloudModule(nn.Module):
-    def __init__(self, num_devices):
-        super(CloudModule, self).__init__()
-        self.num_devices = num_devices
-        #self.device_models = []
-        #for _ in range(num_devices):
-        #    self.device_models.append(DeviceModel(in_channels))
-        #self.device_models = nn.ModuleList(self.device_models)
-
-        cloud_input_channels = 16 * num_devices
-        self.cloud_model = nn.Sequential(
-            NnLayer(cloud_input_channels, 64),
-            NnLayer(64, 64),
-            # NnLayer(64, 64),
-            NnLayer(64, 128)
-        )
-        self.regression = nn.Linear(128, 1)
-
-    def forward(self, x):
-        #hs, predictions = [], []
-        #for i, device_model in enumerate(self.device_models):
-        #    h, prediction = device_model(x[:, i])
-        #    hs.append(h)
-        #    predictions.append(prediction)
-
-        #h = torch.cat(x, dim=1) # This one is needed
-        h = self.cloud_model(x)
-        return self.regression(h)
+from network_test.models import CloudModule
 
 
 def train(model, train_matrix, train_true, optimizer, loss_func):

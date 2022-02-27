@@ -7,10 +7,10 @@ from torch.autograd import Variable
 
 
 class DeviceModel(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self):
         super(DeviceModel, self).__init__()
         self.model = nn.Sequential(
-            RnnLayer(in_channels, 32),
+            RnnLayer(1, 32),
             NnLayer(32, 32),
             NnLayer(32, 16)
         )
@@ -40,20 +40,29 @@ def create(station_id, train_matrix, train_true, cloud_ip: str, port: int):
     epochs = 10
     s = socket.socket()
 
-    model = DeviceModel(1)
+    model = DeviceModel()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     loss_func = torch.nn.MSELoss()
 
     # os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    s.connect((cloud_ip, port))
+    try:
+        s.connect(('127.0.0.1', port))
+    except socket.error as e:
+        print(str(e))
+
+    data_dict = {"station_id": str(station_id), 'train': []}
+
     for epoch in range(1, epochs):
+        print(epoch)
         output = train(model, train_matrix, train_true, optimizer, loss_func)
-        data = json.dumps({"station_id": station_id, "train": output.tolist()})
-        s.sendall(data.encode())
+        data_dict['train'].append(output.tolist())
+
+    data = json.dumps(data_dict)
+    s.sendall(data.encode())
     s.close()
 
 
 if __name__ == "__main__":
     matrix = torch.tensor([[[1.0], [5.0], [9.0]], [[0.0], [10.0], [4.0]]])
     true = torch.tensor([[1.0], [2.0]])
-    create(1, matrix, true, '192.168.0.104', 10203)
+    create(0, matrix, true, '192.168.0.104', 10203)
