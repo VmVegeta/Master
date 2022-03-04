@@ -22,15 +22,18 @@ class CloudModule(nn.Module):
         self.regression = nn.Linear(128, 1)
 
     def forward(self, x):
-        #hs, predictions = [], []
-        #for i, device_model in enumerate(self.device_models):
-        #    h, prediction = device_model(x[:, i])
-        #    hs.append(h)
-        #    predictions.append(prediction)
+        """
+        hs, predictions = [], []
+        for i, device_model in enumerate(self.device_models):
+            h, prediction = device_model(x[:, i])
+            hs.append(h)
+            predictions.append(prediction)
 
-        #h = torch.cat(x, dim=1) # This one is needed
-        first_dim = x.shape[0]
-        second_dim = x.shape[1] * x.shape[2]
+        h = torch.cat(x, dim=1) # This one is needed
+        """
+        first_dim = x.shape[1]
+        second_dim = x.shape[0] * x.shape[2]
+        x = torch.permute(x, (1, 0, 2))
         x = torch.reshape(x, (first_dim, second_dim))
         h = self.cloud_model(x)
         return self.regression(h)
@@ -42,12 +45,12 @@ class RnnLayer(nn.Module):
         self.hidden_dim = 32
         self.n_layers = 2
 
-        self.rnn = nn.RNN(in_channels, 32, self.n_layers, batch_first=True, dropout=0.1)
+        self.rnn = nn.LSTM(in_channels, 32, self.n_layers, batch_first=True, dropout=0.1)
         self.fc = nn.Linear(self.hidden_dim, out_channels)
 
     def forward(self, x):
-        hidden = torch.zeros(self.n_layers, x.size(0), self.hidden_dim).requires_grad_()
-        out, hidden = self.rnn(x, hidden.detach())
+        #hidden = torch.zeros(self.n_layers, x.size(0), self.hidden_dim).requires_grad_()
+        out, hidden = self.rnn(x)
 
         out = out[:, -1, :]
         out = self.fc(out)
