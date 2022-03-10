@@ -4,7 +4,6 @@ import json
 import torch
 from torch.autograd import Variable
 from network_test.models import CloudModule
-from _thread import *
 from network_test.pollution_dataset import get_dataset
 
 
@@ -35,22 +34,43 @@ def train(model, train_matrix, train_true, optimizer, loss_func, current_epoch):
     return predictions
 
 
-def threaded_client(connection, child_pipe):
-    datas = ''
+def infer(model, matrix, datetime):
+    model.train()
+    if torch.cuda.is_available():
+        matrix = matrix.cuda()
+    data = Variable(matrix)
+
+    prediction = model(data)
+    print('Predicted value for Bygdø Alle ', datetime, '{:.4f}'.format(prediction[0]))
+
+
+def train_client_thread(connection, child_pipe):
+    json_data = ''
     while True:
         data = connection.recv(26480000)
         if not data:
             break
-        datas += data.decode()
-    data = json.loads(datas)
+        json_data += data.decode()
+    data = json.loads(json_data)
     connection.close()
 
-    #return_dict = queue.get()
     station_id = data['station_id']
-    #return_dict[station_id] = data['train']
-    #queue.put(return_dict)
     child_pipe.send((station_id, data['train']))
     print('Thread done')
+
+
+def infer_client_thread(connection, child_pipe):
+    json_data = ''
+    while True:
+        data = connection.recv(26480000)
+        if not data:
+            break
+        json_data += data.decode()
+    data = json.loads(json_data)
+    connection.close()
+
+    station_id = data['station_id']
+    child_pipe.send((station_id, data['infer'], data['datetime']))
 
 
 def wait_and_train(server_socket, model, optimizer, loss_func, true_value, num_devices):
@@ -64,13 +84,11 @@ def wait_and_train(server_socket, model, optimizer, loss_func, true_value, num_d
         #ret_value = multiprocessing.Value("d", 0.0, lock=False)
         parent_pipe, child_pipe = multiprocessing.Pipe()
         parent_pipes.append(parent_pipe)
-        p = multiprocessing.Process(target=threaded_client, args=(client, child_pipe))
+        p = multiprocessing.Process(target=train_client_thread, args=(client, child_pipe))
         jobs.append(p)
         p.start()
         thread_count += 1
         print('Thread Number: ' + str(thread_count))
-    server_socket.close()
-    print("Socket Close")
 
     train_data = [[]] * num_devices
     for parent_pipe in parent_pipes:
@@ -84,11 +102,52 @@ def wait_and_train(server_socket, model, optimizer, loss_func, true_value, num_d
     print("Workers done")
 
     tensor_matrix = torch.tensor(train_data)
+    tensor_matrix = torch.dequantize(tensor_matrix)
     #for i in range(tensor_matrix.shape[1]):
     #matrix = tensor_matrix[:, i, :]
     for i in range(200):
         matrix = tensor_matrix[:, i % 10, :]
         train(model, matrix, true_value, optimizer, loss_func, i)
+
+
+def start_inference(server_socket, model):
+    print('Inference Ready')
+    while True:
+        thread_count = 0
+        jobs = []
+        parent_pipes = []
+        while thread_count < num_devices:
+            client, address = server_socket.accept()
+            print('Connected to: ' + address[0] + ':' + str(address[1]))
+            parent_pipe, child_pipe = multiprocessing.Pipe()
+            parent_pipes.append(parent_pipe)
+            p = multiprocessing.Process(target=infer_client_thread, args=(client, child_pipe))
+            jobs.append(p)
+            p.start()
+            thread_count += 1
+            print('Thread Number: ' + str(thread_count))
+
+        datetime = None
+        train_data = [[]] * num_devices
+        for parent_pipe in parent_pipes:
+            received = parent_pipe.recv()
+            train_data[int(received[0])] = received[1]
+            if datetime is None:
+                datetime = received[2]
+            else:
+                if datetime != received[2]:
+                    print("Datetimes do not match")
+                    print("Program just gave up")
+                    exit(1)
+
+            print("Works: ", received[0])
+
+        for proc in jobs:
+            proc.join()
+
+        tensor_matrix = torch.tensor(train_data)
+        tensor_matrix = torch.dequantize(tensor_matrix)
+        infer(model, tensor_matrix, datetime)
 
 
 def main(num_devices, true_value):
@@ -109,13 +168,16 @@ def main(num_devices, true_value):
     #queue = multiprocessing.Queue()
     #queue.put(return_dict)
 
-    print('Waiting for a Connection..')
+    print('Ready to connect')
 
     server_socket.listen(num_devices)
     wait_and_train(server_socket, model, optimizer, loss_func, true_value, num_devices)
     #start_new_thread(wait_and_train, (server_socket, return_dict, model, optimizer, loss_func, true_value, num_devices))
 
-    # Can do one last prediction
+    start_inference(server_socket, model)
+
+    server_socket.close()
+    print("Socket Close")
     #return model
 
 
