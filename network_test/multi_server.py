@@ -34,14 +34,13 @@ def train(model, train_matrix, train_true, optimizer, loss_func, current_epoch):
     return predictions
 
 
-def infer(model, matrix, datetime):
-    model.train()
+def predict(model, matrix):
+    model.eval()
     if torch.cuda.is_available():
         matrix = matrix.cuda()
     data = Variable(matrix)
 
-    prediction = model(data)
-    print('Predicted value for Bygdø Alle ', datetime, '{:.4f}'.format(prediction[0]))
+    return model(data)
 
 
 def train_client_thread(connection, child_pipe):
@@ -110,6 +109,48 @@ def wait_and_train(server_socket, model, optimizer, loss_func, true_value, num_d
         train(model, matrix, true_value, optimizer, loss_func, i)
 
 
+def print_results(predictions, true_value, loss_func):
+    if torch.cuda.is_available():
+        true_value = true_value.cuda()
+    true_value = Variable(true_value)
+
+    loss = loss_func(predictions, true_value)
+    print(loss)
+    print(r2_loss(predictions, true_value))
+
+
+def start_eval(server_socket, model, true_value):
+    print('Eval Ready')
+    thread_count = 0
+    jobs = []
+    parent_pipes = []
+    while thread_count < num_devices:
+        client, address = server_socket.accept()
+        print('Connected to: ' + address[0] + ':' + str(address[1]))
+        parent_pipe, child_pipe = multiprocessing.Pipe()
+        parent_pipes.append(parent_pipe)
+        p = multiprocessing.Process(target=train_client_thread, args=(client, child_pipe))
+        jobs.append(p)
+        p.start()
+        thread_count += 1
+        print('Thread Number: ' + str(thread_count))
+
+    train_data = [[]] * num_devices
+    for parent_pipe in parent_pipes:
+        received = parent_pipe.recv()
+        train_data[int(received[0])] = received[1]
+
+        print("Works: ", received[0])
+
+    for proc in jobs:
+        proc.join()
+
+    tensor_matrix = torch.tensor(train_data)
+    tensor_matrix = torch.dequantize(tensor_matrix)
+    predictions = predict(model, tensor_matrix)
+    print_results(predictions, true_value, torch.nn.MSELoss())
+
+
 def start_inference(server_socket, model):
     print('Inference Ready')
     while True:
@@ -147,10 +188,11 @@ def start_inference(server_socket, model):
 
         tensor_matrix = torch.tensor(train_data)
         tensor_matrix = torch.dequantize(tensor_matrix)
-        infer(model, tensor_matrix, datetime)
+        prediction = predict(model, tensor_matrix)
+        print('Predicted value for Bygdø Alle ', datetime, '{:.4f}'.format(prediction))
 
 
-def main(num_devices, true_value):
+def main(num_devices, true_value, test_true):
     server_socket = socket.socket()
     host = ''
     port = 10203
@@ -174,7 +216,7 @@ def main(num_devices, true_value):
     wait_and_train(server_socket, model, optimizer, loss_func, true_value, num_devices)
     #start_new_thread(wait_and_train, (server_socket, return_dict, model, optimizer, loss_func, true_value, num_devices))
 
-    start_inference(server_socket, model)
+    start_eval(server_socket, model, test_true)
 
     server_socket.close()
     print("Socket Close")
@@ -184,5 +226,4 @@ def main(num_devices, true_value):
 if __name__ == '__main__':
     train_matrix, train_true, test_matrix, test_true, station_names = get_dataset()
     num_devices = 7
-    #true = torch.tensor([[1.0], [2.0]])
-    main(num_devices, train_true)
+    main(num_devices, train_true, test_true)

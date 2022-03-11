@@ -14,10 +14,10 @@ class CloudModule(nn.Module):
 
         cloud_input_channels = 16 * num_devices
         self.cloud_model = nn.Sequential(
-            NnLayer(cloud_input_channels, 64),
-            NnLayer(64, 64),
-            # NnLayer(64, 64),
-            NnLayer(64, 128)
+            NnLayer(cloud_input_channels, 128),
+            NnLayer(128, 128),
+            NnLayer(128, 128),
+            NnLayer(128, 128),
         )
         self.regression = nn.Linear(128, 1)
 

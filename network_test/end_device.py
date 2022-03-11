@@ -71,12 +71,25 @@ class DeviceModel(nn.Module):
 
 
 class EndDevice:
-    def __init__(self, station_id, server_address: str, port: int):
+    def __init__(self, station_id: str, server_address: str, port: int):
         self.station_id = station_id
         self.server_address = server_address
         self.port = port
         torch.manual_seed(1)
         self.model = DeviceModel()
+
+    def send_data(self, data_dict):
+        s = socket.socket()
+        try:
+            s.connect((self.server_address, self.port))
+            data = json.dumps(data_dict, separators=(',', ':'))
+            encode = data.encode()
+            print(len(encode))
+            s.sendall(encode)
+            s.close()
+        except socket.error as e:
+            print(str(e))
+        s.close()
 
     def train(self, train_matrix, train_true, optimizer, loss_func, last):
         self.model.train()
@@ -109,7 +122,7 @@ class EndDevice:
         # criterion = nn.CrossEntropyLoss()
         criterion = nn.BCEWithLogitsLoss()
         exit_loss = criterion(to_exit_prediction, to_exit)
-        print('EE loss: ', '{:.4f}'.format(exit_loss))
+        #print('EE loss: ', '{:.4f}'.format(exit_loss))
         #loss = loss_func(predictions, target) + exit_loss
         exit_loss.backward()
         optimizer.step()
@@ -119,19 +132,21 @@ class EndDevice:
 
         return output
 
-    #Init med id så start trening i thread for også fullføre treningen
-    #def infer()
-
+    def evaluate(self, test_matrix):
+        print('Evaluate: ', self.station_id)
+        self.model.eval()
+        output, predictions, ee_p = self.model(test_matrix)
+        data_dict = {"station_id": self.station_id, 'train': quantize_data(output)}
+        self.send_data(data_dict)
 
     def create(self, epochs, train_matrix, train_true, test_matrix, test_true):
-        print('Started: ' + str(self.station_id))
-
+        print('Started: ', self.station_id)
         # model = torch.quantization.quantize_dynamic(model, {torch.nn.LSTM}, dtype=torch.float16)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.01)
         loss_func = torch.nn.MSELoss()
         # os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
-        data_dict = {"station_id": str(self.station_id), 'train': []}
+        data_dict = {"station_id": self.station_id, 'train': []}
         for epoch in range(1, epochs):
             last = epoch == epochs - 1
             output = self.train(train_matrix, train_true, optimizer, loss_func, last)
@@ -139,6 +154,7 @@ class EndDevice:
             #data_dict['train'].append(output.tolist())
             if epoch >= epochs - 11:
                 data_dict['train'].append(quantize_data(output))
+                #data_dict['train'].append(shorten_data(output))
 
         self.model.eval()
         output, predictions, ee_p = self.model(test_matrix)
@@ -148,38 +164,29 @@ class EndDevice:
         # Try with two output then predict both
         ee = early_exit(predictions, test_true, 5)
         print("Binary Acc:", binary_acc(ee_p, ee))
-        print(torch.count_nonzero(torch.round(torch.sigmoid(ee_p))))
 
-        for epoch in range(1, int(epochs / 2)):
-            last = epoch == epochs - 1
-            output = self.early_exit_train(train_matrix, train_true, optimizer, loss_func, last)
-            #data_dict['train'].append(output.tolist())
-            if epoch >= epochs - 11:
-                data_dict['train'].append([[math.floor(x * 100) / 100.0 for x in row] for row in output.tolist()])
+        if False:
+            for epoch in range(1, int(epochs / 2)):
+                last = epoch == epochs - 1
+                output = self.early_exit_train(train_matrix, train_true, optimizer, loss_func, last)
+                #data_dict['train'].append(output.tolist())
+                if epoch >= epochs - 11:
+                    data_dict['train'].append([[math.floor(x * 100) / 100.0 for x in row] for row in output.tolist()])
 
-        self.model.eval()
-        output, predictions, ee_p = self.model(test_matrix)
-        print("Eval loss:", loss_func(predictions, test_true))
-        print("Eval R2:", r2_loss(predictions, test_true))
+            self.model.eval()
+            output, predictions, ee_p = self.model(test_matrix)
+            print("Eval loss:", loss_func(predictions, test_true))
+            print("Eval R2:", r2_loss(predictions, test_true))
 
-        # Try with two output then predict both
-        ee = early_exit(predictions, test_true, 5)
-        print("Binary Acc:", binary_acc(ee_p, ee))
-        print(torch.count_nonzero(torch.round(torch.sigmoid(ee_p))))
+            # Try with two output then predict both
+            ee = early_exit(predictions, test_true, 5)
+            print("Binary Acc:", binary_acc(ee_p, ee))
+            print(torch.count_nonzero(torch.round(torch.sigmoid(ee_p))))
 
         # data_dict['train'].append(output.tolist())
-        s = socket.socket()
-        try:
-            s.connect((self.server_address, self.port))
-            data = json.dumps(data_dict, separators=(',', ':'))
-            encode = data.encode()
-            print(len(encode))
-            s.sendall(encode)
-            s.close()
-        except socket.error as e:
-            print(str(e))
+        self.send_data(data_dict)
 
-        print('Ended: ', str(self.station_id))
+        print('Ended: ', self.station_id)
 
 
 if __name__ == "__main__":
@@ -187,7 +194,7 @@ if __name__ == "__main__":
     train_ma = train_matrix[:, 0]
     test_ma = test_matrix[:, 0]
     start_time = time.time()
-    ed = EndDevice(0, '127.0.0.1', 10203)
+    ed = EndDevice('0', '127.0.0.1', 10203)
     ed.create(10, train_ma, train_true, test_ma, test_true)
     print('Time: ', time.time() - start_time)
     #matrix = torch.tensor([[[1.0], [5.0], [9.0]], [[0.0], [10.0], [4.0]]])
