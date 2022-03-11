@@ -38,4 +38,4 @@ def main(epochs: int):
 
 
 if __name__ == '__main__':
-    main(100)
+    main(20)
