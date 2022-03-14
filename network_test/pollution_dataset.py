@@ -110,10 +110,11 @@ def predict_parallel_all(station_data: Dict[str, List[Measure]], station_name: s
     matrix, true_values = build_parallel_matrix(result_data, input_data_list, history)
     matrix, true_values = shuffle_data(matrix, true_values)
 
-    train_matrix, test_matrix = split_set(matrix, 0.5)
-    train_true, test_true = split_set(true_values, 0.5)
-    #test_matrix, rest = split_set(test_matrix, 0.1)
-    #test_true, rest = split_set(test_true, 0.1)
+    #TODO: Change this
+    train_matrix, test_matrix = split_set(matrix, 0.3)
+    train_true, test_true = split_set(true_values, 0.3)
+    test_matrix, rest = split_set(test_matrix, 0.5)
+    test_true, rest = split_set(test_true, 0.5)
 
     train_matrix = torch.tensor(train_matrix)
     test_matrix = torch.tensor(test_matrix)

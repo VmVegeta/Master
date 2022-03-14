@@ -7,10 +7,10 @@ from network_test.tools import *
 
 
 class MultiServer:
-    def __init__(self, device_count):
+    def __init__(self, device_count: int, output_size: int, host=''):
         self.device_count = device_count
-        self.model = CloudModule(device_count)
-        self.host = ''
+        self.model = CloudModule(device_count, output_size)
+        self.host = host
         self.port = 10203
 
     def launch(self, true_value, test_true):
@@ -72,7 +72,6 @@ class MultiServer:
 
     def start_inference(self, server_socket):
         print('Inference Ready')
-        infer_client_thread
         while True:
             data = self.collect_data(server_socket, infer_client_thread)
             datetime = None
@@ -157,7 +156,7 @@ def print_results(predictions, true_value, loss_func):
 
 
 if __name__ == '__main__':
-    train_matrix, train_true, test_matrix, test_true, station_names = get_dataset()
-    device_count = 7
-    server = MultiServer(device_count)
+    train_matrix, train_true, test_matrix, test_true, station_names = get_dataset(filename='../data/Alnabru_Bygdøy.csv')
+    device_count = 1
+    server = MultiServer(device_count, 16, host='193.157.165.239')
     server.launch(train_true, test_true)

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class CloudModule(nn.Module):
-    def __init__(self, num_devices):
+    def __init__(self, num_devices: int, output_size: int):
         super(CloudModule, self).__init__()
         self.num_devices = num_devices
         #self.device_models = []
@@ -12,7 +12,7 @@ class CloudModule(nn.Module):
         #    self.device_models.append(DeviceModel(in_channels))
         #self.device_models = nn.ModuleList(self.device_models)
 
-        cloud_input_channels = 16 * num_devices
+        cloud_input_channels = output_size * num_devices
         self.cloud_model = nn.Sequential(
             NnLayer(cloud_input_channels, 128),
             NnLayer(128, 128),
@@ -22,15 +22,6 @@ class CloudModule(nn.Module):
         self.regression = nn.Linear(128, 1)
 
     def forward(self, x):
-        """
-        hs, predictions = [], []
-        for i, device_model in enumerate(self.device_models):
-            h, prediction = device_model(x[:, i])
-            hs.append(h)
-            predictions.append(prediction)
-
-        h = torch.cat(x, dim=1) # This one is needed
-        """
         first_dim = x.shape[1]
         second_dim = x.shape[0] * x.shape[2]
         x = torch.permute(x, (1, 0, 2))
