@@ -45,5 +45,5 @@ def early_exit(prediction: torch.Tensor, target: torch.Tensor, acceptable_range:
 
 def convert_tensor(tensor: torch.Tensor):
     if torch.cuda.is_available():
-        tensor, train_true = tensor.cuda()
+        tensor = tensor.cuda()
     return Variable(tensor)
