@@ -2,8 +2,6 @@ import socket
 import json
 import torch.nn as nn
 from network_test.models import RnnLayer, NnLayer
-from torch.autograd import Variable
-import torch.nn.functional as F
 from network_test.pollution_dataset import get_dataset
 import time
 from network_test.tools import *
@@ -106,6 +104,8 @@ class EndDevice:
         # os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
         data_dict = {"station_id": self.station_id, 'train': []}
+        #with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
+        #with record_function("model_train"):
         for epoch in range(1, int(epochs)):
             last = epoch == epochs - 1
             output = self.train(train_matrix, train_true, optimizer, last)

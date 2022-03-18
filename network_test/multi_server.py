@@ -7,11 +7,11 @@ from network_test.tools import *
 
 
 class MultiServer:
-    def __init__(self, device_count: int, output_size: int, host=''):
+    def __init__(self, device_count: int, output_size: int, host='', port=10203):
         self.device_count = device_count
         self.model = CloudModule(device_count, output_size)
         self.host = host
-        self.port = 10203
+        self.port = port
 
     def launch(self, true_value, test_true):
         server_socket = socket.socket()
@@ -36,7 +36,7 @@ class MultiServer:
         tensor_matrix = torch.dequantize(tensor_matrix)
         # for i in range(tensor_matrix.shape[1]):
         # matrix = tensor_matrix[:, i, :]
-        for i in range(200):
+        for i in range(100):
             matrix = tensor_matrix[:, i % 10, :]
             self.train(matrix, true_value, optimizer, loss_func, i)
 
@@ -156,7 +156,7 @@ def print_results(predictions, true_value, loss_func):
 
 
 if __name__ == '__main__':
-    train_matrix, train_true, test_matrix, test_true, station_names = get_dataset(filename='../data/Alnabru_Bygdøy.csv')
-    device_count = 1
-    server = MultiServer(device_count, 16, host='193.157.165.239')
+    train_matrix, train_true, test_matrix, test_true, station_names = get_dataset() #filename='../data/Alnabru_Bygdøy.csv'
+    device_count = 7
+    server = MultiServer(device_count, 16)
     server.launch(train_true, test_true)
