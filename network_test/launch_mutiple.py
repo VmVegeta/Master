@@ -29,7 +29,7 @@ def main(epochs: int, output_size: int):
         )
 
     while True:
-        prompt = input('"exit"/"eval"')
+        prompt = input('"exit"/"eval": ')
         if prompt == 'exit':
             exit(-1)
         if prompt == 'eval':

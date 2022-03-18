@@ -2,8 +2,6 @@ import socket
 import json
 import torch.nn as nn
 from network_test.models import RnnLayer, NnLayer
-from torch.autograd import Variable
-import torch.nn.functional as F
 from network_test.pollution_dataset import get_dataset
 import time
 from network_test.tools import *
@@ -106,50 +104,49 @@ class EndDevice:
         # os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
         data_dict = {"station_id": self.station_id, 'train': []}
-        with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
-            with record_function("model_train"):
-                for epoch in range(1, int(epochs)):
-                    last = epoch == epochs - 1
-                    output = self.train(train_matrix, train_true, optimizer, last)
+        #with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
+        #with record_function("model_train"):
+        for epoch in range(1, int(epochs)):
+            last = epoch == epochs - 1
+            output = self.train(train_matrix, train_true, optimizer, last)
 
-                    #data_dict['train'].append(output.tolist())
-                    if epoch >= epochs - 11:
-                        data_dict['train'].append(quantize_data(output))
-                        #data_dict['train'].append(shorten_data(output))
+            #data_dict['train'].append(output.tolist())
+            if epoch >= epochs - 11:
+                data_dict['train'].append(quantize_data(output))
+                #data_dict['train'].append(shorten_data(output))
 
-                self.model.eval()
-                output, predictions, ee_p = self.model(test_matrix)
-                print("Eval loss:", self.loss_func(predictions, test_true))
-                print("Eval R2:", r2_loss(predictions, test_true))
+        self.model.eval()
+        output, predictions, ee_p = self.model(test_matrix)
+        print("Eval loss:", self.loss_func(predictions, test_true))
+        #print("Eval R2:", r2_loss(predictions, test_true))
 
-                # Try with two output then predict both
-                ee = early_exit(predictions, test_true, 5)
-                print("Binary Acc:", binary_acc(ee_p, ee))
+        # Try with two output then predict both
+        #ee = early_exit(predictions, test_true, 5)
+        #print("Binary Acc:", binary_acc(ee_p, ee))
 
-                if False:
-                    for epoch in range(1, int(epochs)):
-                        last = epoch == epochs - 1
-                        if epoch % 4 == 0:
-                            self.train(train_matrix, train_true, optimizer, last)
-                        self.early_exit_train(train_matrix, train_true, optimizer, last)
-                        #data_dict['train'].append(output.tolist())
-                        #if epoch >= epochs - 11:
-                        #data_dict['train'].append()
+        if False:
+            for epoch in range(1, int(epochs)):
+                last = epoch == epochs - 1
+                if epoch % 4 == 0:
+                    self.train(train_matrix, train_true, optimizer, last)
+                self.early_exit_train(train_matrix, train_true, optimizer, last)
+                #data_dict['train'].append(output.tolist())
+                #if epoch >= epochs - 11:
+                #data_dict['train'].append()
 
-                    self.model.eval()
-                    output, predictions, ee_p = self.model(test_matrix)
-                    print("Eval loss:", self.loss_func(predictions, test_true))
-                    print("Eval R2:", r2_loss(predictions, test_true))
+            self.model.eval()
+            output, predictions, ee_p = self.model(test_matrix)
+            print("Eval loss:", self.loss_func(predictions, test_true))
+            print("Eval R2:", r2_loss(predictions, test_true))
 
-                    # Try with two output then predict both
-                    ee = early_exit(predictions, test_true, 10)
-                    print("Binary Acc:", binary_acc(ee_p, ee))
-                    print(torch.count_nonzero(torch.round(torch.sigmoid(ee_p))))
+            # Try with two output then predict both
+            ee = early_exit(predictions, test_true, 10)
+            print("Binary Acc:", binary_acc(ee_p, ee))
+            print(torch.count_nonzero(torch.round(torch.sigmoid(ee_p))))
 
-                # data_dict['train'].append(output.tolist())
-                self.send_data(data_dict)
+        self.send_data(data_dict)
 
-        print(prof.key_averages().table(sort_by="cpu_time_total"))
+        #print(prof.key_averages().table(sort_by="cpu_time_total"))
         print('Ended: ', self.station_id)
 
 
