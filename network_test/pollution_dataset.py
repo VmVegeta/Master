@@ -111,8 +111,8 @@ def predict_parallel_all(station_data: Dict[str, List[Measure]], station_name: s
     matrix, true_values = shuffle_data(matrix, true_values)
 
     #TODO: Change this
-    train_matrix, test_matrix = split_set(matrix, 0.5)
-    train_true, test_true = split_set(true_values, 0.5)
+    train_matrix, test_matrix = split_set(matrix, 0.7)
+    train_true, test_true = split_set(true_values, 0.7)
     #test_matrix, rest = split_set(test_matrix, 0.5)
     #test_true, rest = split_set(test_true, 0.5)
 

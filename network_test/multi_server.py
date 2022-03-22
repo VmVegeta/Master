@@ -10,6 +10,8 @@ class MultiServer:
     def __init__(self, device_count: int, output_size: int, host='', port=10203):
         self.device_count = device_count
         self.model = CloudModule(device_count, output_size)
+        if torch.cuda.is_available():
+            self.model.cuda()
         self.host = host
         self.port = port
 
@@ -21,11 +23,11 @@ class MultiServer:
             print(str(e))
             exit(1)
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.01)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.008)
         print('Ready to connect')
         server_socket.listen(self.device_count)
         self.wait_and_train(server_socket, optimizer, torch.nn.MSELoss(), true_value)
-        self.start_eval(server_socket, test_true)
+        # self.start_eval(server_socket, test_true)
         server_socket.close()
         print("Socket Close")
 
@@ -36,13 +38,15 @@ class MultiServer:
         tensor_matrix = torch.dequantize(tensor_matrix)
         # for i in range(tensor_matrix.shape[1]):
         # matrix = tensor_matrix[:, i, :]
-        for i in range(100):
+        true_value = convert_tensor(true_value)
+        for i in range(300):
             matrix = tensor_matrix[:, i % 10, :]
-            self.train(matrix, true_value, optimizer, loss_func, i)
+            to_print = i == 299
+            self.train(matrix, true_value, optimizer, loss_func, to_print)
 
-    def train(self, X, y, optimizer, loss_func, current_epoch):
+    def train(self, X, y, optimizer, loss_func, to_print):
         self.model.train()
-        X, y = convert_tensor(X), convert_tensor(y)
+        X = convert_tensor(X)
 
         optimizer.zero_grad()
         predictions = self.model(X)
@@ -50,7 +54,7 @@ class MultiServer:
         loss.backward()
         optimizer.step()
 
-        if current_epoch % 5 == 0:
+        if to_print:
             print(loss)
             print(r2_loss(predictions, y))
 
@@ -104,14 +108,14 @@ class MultiServer:
         parent_pipes = []
         while thread_count < self.device_count:
             client, address = server_socket.accept()
-            print('Connected to: ' + address[0] + ':' + str(address[1]))
+            #print('Connected to: ' + address[0] + ':' + str(address[1]))
             parent_pipe, child_pipe = multiprocessing.Pipe()
             parent_pipes.append(parent_pipe)
             p = multiprocessing.Process(target=handle_function, args=(client, child_pipe))
             jobs.append(p)
             p.start()
             thread_count += 1
-            print('Thread Number: ' + str(thread_count))
+            #print('Thread Number: ' + str(thread_count))
 
         data = [[]] * self.device_count
         for parent_pipe in parent_pipes:
@@ -139,7 +143,7 @@ def train_client_thread(connection, child_pipe):
     data = get_raw_data(connection)
     station_id = data['station_id']
     child_pipe.send((station_id, data['train']))
-    print('Thread done')
+    #print('Thread done')
 
 
 def infer_client_thread(connection, child_pipe):
@@ -156,7 +160,32 @@ def print_results(predictions, true_value, loss_func):
 
 
 if __name__ == '__main__':
-    train_matrix, train_true, test_matrix, test_true, station_names = get_dataset() #filename='../data/Alnabru_Bygdøy.csv'
+    train_matrix, train_true, test_matrix, test_true, station_names = get_dataset()
     device_count = 7
-    server = MultiServer(device_count, 16)
-    server.launch(train_true, test_true)
+    output_sizes = [8, 16, 32]
+    servers = []
+    for output_size in output_sizes:
+        print(str(output_size))
+        port = 10200 + output_size
+        server = MultiServer(device_count, output_size, port=port)
+        server.launch(train_true, test_true)
+        servers.append(server)
+
+        s = socket.socket()
+        try:
+            s.connect(('127.0.0.1', 12122))
+            s.sendall(b'next')
+            s.close()
+        except socket.error as e:
+            print(str(e))
+        s.close()
+
+    for server in servers:
+        server_socket = socket.socket()
+        try:
+            server_socket.bind((server.host, server.port))
+        except socket.error as e:
+            print(str(e))
+            exit(1)
+        server_socket.listen(device_count)
+        server.start_eval(server_socket, test_true)

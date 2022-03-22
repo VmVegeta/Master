@@ -24,7 +24,7 @@ def binary_acc(y_pred, y_test):
     #softmaxFunc = nn.Softmax(dim=1)
     #softmaxScores = softmaxFunc(y_pred)
     # y_pred_tag = torch.round(test)
-    y_pred_tag = sigmoidScores > 0.5
+    y_pred_tag = sigmoidScores > 0.7
 
     #correct_results_sum = (y_pred_tag == y_test).sum()
     correct_results_sum = ((y_pred_tag == True) & (y_test == 1.)).sum()
@@ -34,7 +34,7 @@ def binary_acc(y_pred, y_test):
     acc = correct_results_sum / total_prediction
     acc = torch.round(acc * 10000) / 100
 
-    return acc
+    return acc, "{:.4f}".format(total_prediction)
 
 
 def early_exit(prediction: torch.Tensor, target: torch.Tensor, acceptable_range: float):
