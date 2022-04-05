@@ -18,16 +18,17 @@ class CloudModule(nn.Module):
             NnLayer(128, 128),
             NnLayer(128, 128),
             NnLayer(128, 128),
+            NnLayer(128, 1)
         )
-        self.regression = nn.Linear(128, 1)
 
     def forward(self, x):
+        """
         first_dim = x.shape[1]
         second_dim = x.shape[0] * x.shape[2]
         x = torch.permute(x, (1, 0, 2))
         x = torch.reshape(x, (first_dim, second_dim))
-        h = self.cloud_model(x)
-        return self.regression(h)
+        """
+        return self.cloud_model(x)
 
 
 class RnnLayer(nn.Module):
