@@ -13,21 +13,18 @@ class DeviceModel(nn.Module):
         super(DeviceModel, self).__init__()
         self.model = nn.Sequential(
             RnnLayer(1, rnn_size),
-            #nn.Dropout(0.1),
             NnLayer(rnn_size, 64),
-            #nn.Dropout(0.1),
             NnLayer(64, 64),
-            #nn.Dropout(0.1),
             NnLayer(64, output_size)
         )
         self.regression = nn.Linear(output_size, 1)
-        self.early_exit = nn.Sequential(
+        self.early_exit_classification = nn.Sequential(
             nn.Linear(output_size, 32),
             nn.Linear(32, 1))
 
     def forward(self, x):
         h = self.model(x)
-        return h, self.regression(h), self.early_exit(h)
+        return h, self.regression(h), self.early_exit_classification(h)
 
 
 class EndDevice:

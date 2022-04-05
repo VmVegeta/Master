@@ -36,7 +36,6 @@ class MiddleDevice:
         self.port = port
         self.server_port = server_port
         self.device_count = device_count
-        torch.manual_seed(1)
 
         self.model = MiddleModel(output_size, device_count)
         if torch.cuda.is_available():

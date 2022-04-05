@@ -9,12 +9,22 @@ from torch.autograd import Variable
 import torch.utils.data as data
 
 
-def get_difference_in_hours(measure: Measure, result: Measure):
+def get_difference_in_hours(measure: Measure, earlier_measure: Measure):
+    """
+        Function to return the difference
+        in hours between two measurements
+
+        Args:
+            measure (Measure): The latest measurement object by time
+            earlier_measure (Measure): The earliest measurement
+                object by time
+    """
     measure_time = measure.datetime
-    result_time = result.datetime
-    diff = result_time - measure_time
+    earlier_time = earlier_measure.datetime
+    diff = earlier_time - measure_time
     seconds = diff.total_seconds()
-    return int(seconds / 60 / 60)
+    hours = int(seconds / 60 / 60)
+    return hours
 
 
 def get_station_means(measurements: List[Measure]):
@@ -41,10 +51,24 @@ def shuffle_data(matrix, true_values):
     return matrix, true_values
 
 
-def build_parallel_matrix(result_list: List[Measure], input_data_list: List[List[Measure]], history=0):
-    length_il = len(input_data_list)
+def build_parallel_matrix(result_list: List[Measure], input_data_list: List[List[Measure]], history=6):
+    """
+        Function to build input matrixes for each station and a list of true values.
+        The matrixes contains a measurement for every hour back based the size of history args.
+        It will only return valid matrixes, valid matrixes where all hours in history of all
+        stations has valid measurements and target station has valid measurement.
+
+        Args:
+            result_list (List[Measure]): A list of measurement object for the target station
+            input_data_list (List[List[Measure]]): A list of all measurement objects for all
+                stations except the target station
+            history (int): The number of hours to go back in history for sequence
+        """
+    length_idl = len(input_data_list)
+
+    # List of indexes to keep current position in stations measurements
     indexes = []
-    while len(indexes) < length_il:
+    while len(indexes) < length_idl:
         indexes.append(0)
 
     matrixes = []
@@ -54,35 +78,48 @@ def build_parallel_matrix(result_list: List[Measure], input_data_list: List[List
         matrix = []
         for station_index, input_data in enumerate(input_data_list):
             single_input = []
-            keep = False
             while True:
+                # Gets measurement of index if index is within range of list
                 measurement = input_data[indexes[station_index]] if indexes[station_index] < len(input_data) else None
+                # Breaks if out of index
                 if measurement is None:
                     break
+
+                # Breaks if measurement of station is ahead of current target measurement
+                if current_datetime < measurement.datetime:
+                    break
+
                 if current_datetime == measurement.datetime:
                     prev = None
+                    # Go through all previous index to populate sequence
                     for reduce_index in range(0, history):
                         new_index = indexes[station_index] - reduce_index
+                        # Break if history do not far enough back
                         if new_index < 0:
                             break
+
                         current = input_data[new_index]
                         if prev is not None:
+                            # Break if previous measurement is a hour earlier
                             if get_difference_in_hours(current, prev) != 1:
                                 break
                         prev = current
+                        # Adds measurement value to a sequence
                         single_input.append([current.value])
-                    if len(single_input) == history:
-                        keep = True
+
                     indexes[station_index] += 1
                     break
-                if current_datetime < measurement.datetime:
-                    break
                 indexes[station_index] += 1
-            if keep:
+
+            # Add to matrix if success fully added history
+            if len(single_input) == history:
                 matrix.append(single_input)
-        if len(matrix) == length_il:
+
+        # Add to matrixes and true value if matrix for all stations added
+        if len(matrix) == length_idl:
             matrixes.append(matrix)
             true_value.append([predict_measurement.value])
+
     print(len(true_value))
     return matrixes, true_value
 
