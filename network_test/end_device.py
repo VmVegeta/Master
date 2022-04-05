@@ -1,10 +1,7 @@
-import socket
-import json
-import torch.nn as nn
 from network_test.models import RnnLayer, NnLayer
 from network_test.pollution_dataset import get_dataset
 import time
-from network_test.tools import *
+from network_test.client_base import *
 from torch.profiler import profile, record_function, ProfilerActivity
 
 
@@ -30,67 +27,19 @@ class DeviceModel(nn.Module):
         return h, self.regression(h), self.early_exit(h)
 
 
-class EndDevice:
-    def __init__(self, station_id: str, output_size: int, server_address: str, port: int, is_offline=False, rnn_size=16, ee_range=8):
-        self.station_id = station_id
-        self.server_address = server_address
-        self.port = port
-        #torch.manual_seed(1)
+class EndDevice(ClientBase):
+    def __init__(self, station_id: str, output_size: int, server_address: str, server_port: int, is_offline=False, rnn_size=16, ee_range=8):
+        model = DeviceModel(output_size, rnn_size)
+        super().__init__(model, station_id, output_size, server_address, server_port, ee_range)
+        #torch.manual_seed(2022)
         self.is_offline = is_offline
-        self.ee_range = ee_range
-        self.output_size = output_size
 
-        self.model = DeviceModel(output_size, rnn_size)
         #self.model = torch.quantization.quantize_dynamic(self.model, {torch.nn.LSTM}, dtype=torch.float16) #Don't work with CUDA
         if torch.cuda.is_available():
             self.model.cuda()
 
         self.loss_func = nn.MSELoss()
         self.binary_loss = nn.BCEWithLogitsLoss()
-
-    def send_data(self, data_dict):
-        s = socket.socket()
-        try:
-            s.connect((self.server_address, self.port))
-            data = json.dumps(data_dict, separators=(',', ':'))
-            encode = data.encode()
-            print(len(encode))
-            s.sendall(encode)
-            s.close()
-        except socket.error as e:
-            print(str(e))
-        s.close()
-
-    def train(self, X, y, optimizer, last):
-        self.model.train()
-        optimizer.zero_grad()
-        output, predictions, to_exit_prediction = self.model(X)
-
-        loss = self.loss_func(predictions, y)
-        loss.backward()
-        optimizer.step()
-        if last:
-            print('{:.4f}'.format(loss))
-            print('{:.4f}'.format(r2_loss(predictions, y)))
-
-        return output, loss
-
-    def early_exit_train(self, X, y, optimizer, last):
-        self.model.train()
-        optimizer.zero_grad()
-        output, predictions, to_exit_prediction = self.model(X)
-        to_exit = early_exit(predictions, y, self.ee_range)
-        loss = self.loss_func(predictions, y)
-        exit_loss = self.binary_loss(to_exit_prediction, to_exit)
-        combined_loss = exit_loss + loss
-        combined_loss.backward()
-        optimizer.step()
-
-        if last:
-            print('{:.4f}'.format(loss))
-            print('{:.4f}'.format(r2_loss(predictions, y)))
-
-        return output, loss
 
     def only_early_exit_train(self, X, y, optimizer, last):
         self.model.train()
@@ -104,15 +53,8 @@ class EndDevice:
         if last:
             print('{:.4f}'.format(r2_loss(predictions, y)))
             loss = self.loss_func(predictions, y)
+            print('{:.4f}'.format(loss))
         return output, loss
-
-    def evaluate(self, test_matrix):
-        print('Evaluate: ', self.station_id)
-        self.model.eval()
-        test_matrix = convert_tensor(test_matrix)
-        output, predictions, ee_p = self.model(test_matrix)
-        data_dict = {"station_id": self.station_id, 'train': quantize_data(output)}
-        self.send_data(data_dict)
 
     def create(self, epochs, train_matrix, train_true, test_matrix, test_true, file=None, lr=0.008):
         print('Started: ', self.station_id)
@@ -128,15 +70,16 @@ class EndDevice:
         train_true = convert_tensor(train_true)
 
         for epoch in range(1, int(epochs)):
-            last = epoch == epochs - 1
-            output, loss1 = self.train(train_matrix, train_true, optimizer, False)
+            to_print = epoch == epochs - 1 and self.is_offline
+            output, loss = self.train(train_matrix, train_true, optimizer, to_print)
 
         if True:
             epochs = int(epochs * 2)
             for epoch in range(1, epochs):
-                last = epochs - 1 == epoch
-                output, loss2 = self.early_exit_train(train_matrix, train_true, optimizer, False)
-                if epoch >= epochs - 11:
+                to_send = epochs - 1 == epoch
+                to_print = to_send and self.is_offline
+                output, loss2 = self.early_exit_train(train_matrix, train_true, optimizer, to_print)
+                if to_send:
                     data_dict['train'].append(quantize_data(output))
         """
         self.model.eval()

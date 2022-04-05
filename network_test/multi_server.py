@@ -1,6 +1,9 @@
 import multiprocessing
 import socket
 import json
+
+import torch
+
 from network_test.models import CloudModule
 from network_test.pollution_dataset import get_dataset
 from network_test.tools import *
@@ -34,19 +37,19 @@ class MultiServer:
     def wait_and_train(self, server_socket, optimizer, loss_func, true_value):
         train_data = self.collect_data(server_socket, train_client_thread)
 
-        tensor_matrix = torch.tensor(train_data)
-        tensor_matrix = torch.dequantize(tensor_matrix)
-        # for i in range(tensor_matrix.shape[1]):
-        # matrix = tensor_matrix[:, i, :]
+        train_data = torch.concat(train_data, 2)
         true_value = convert_tensor(true_value)
-        for i in range(300):
-            matrix = tensor_matrix[:, i % 10, :]
-            to_print = i == 299
+        train_data = convert_tensor(train_data)
+        epochs = 300
+        # for i in range(tensor_matrix.shape[0]):
+        # matrix = tensor_matrix[i % 10]
+        for i in range(epochs):
+            matrix = train_data[0]
+            to_print = i == epochs - 1
             self.train(matrix, true_value, optimizer, loss_func, to_print)
 
     def train(self, X, y, optimizer, loss_func, to_print):
         self.model.train()
-        X = convert_tensor(X)
 
         optimizer.zero_grad()
         predictions = self.model(X)
@@ -55,18 +58,16 @@ class MultiServer:
         optimizer.step()
 
         if to_print:
-            print(loss)
-            print(r2_loss(predictions, y))
+            print('{:.4f}'.format(loss))
+            print('{:.4f}'.format(r2_loss(predictions, y)))
 
         return predictions
 
     def start_eval(self, server_socket, true_value):
         print('Eval Ready')
         data = self.collect_data(server_socket, train_client_thread)
-
-        tensor_matrix = torch.tensor(data)
-        tensor_matrix = torch.dequantize(tensor_matrix)
-        predictions = self.predict(tensor_matrix)
+        data = torch.concat(data, 1)
+        predictions = self.predict(data)
         print_results(predictions, true_value, torch.nn.MSELoss())
 
     def predict(self, X):
@@ -117,10 +118,12 @@ class MultiServer:
             thread_count += 1
             #print('Thread Number: ' + str(thread_count))
 
-        data = [[]] * self.device_count
+        data = [None] * self.device_count
         for parent_pipe in parent_pipes:
             received = parent_pipe.recv()
-            data[int(received[0])] = received[1]
+            tensor_matrix = torch.tensor(received[1], dtype=torch.int8)
+            tensor_matrix = torch.dequantize(tensor_matrix)
+            data[int(received[0])] = tensor_matrix
 
         for proc in jobs:
             proc.join()
@@ -155,18 +158,23 @@ def infer_client_thread(connection, child_pipe):
 def print_results(predictions, true_value, loss_func):
     true_value = convert_tensor(true_value)
     loss = loss_func(predictions, true_value)
-    print(loss)
-    print(r2_loss(predictions, true_value))
+    print('{:.4f}'.format(loss))
+    print('{:.4f}'.format(r2_loss(predictions, true_value)))
 
 
 if __name__ == '__main__':
     train_matrix, train_true, test_matrix, test_true, station_names = get_dataset()
     device_count = 7
-    output_sizes = [8, 16, 32]
+    server = MultiServer(device_count, 16)
+    server.launch(train_true, test_true)
+    """
+    train_matrix, train_true, test_matrix, test_true, station_names = get_dataset()
+    device_count = 7
+    output_sizes = [16, 32]
     servers = []
     for output_size in output_sizes:
         print(str(output_size))
-        port = 10200 + output_size
+        port = 10000 + output_size
         server = MultiServer(device_count, output_size, port=port)
         server.launch(train_true, test_true)
         servers.append(server)
@@ -189,3 +197,4 @@ if __name__ == '__main__':
             exit(1)
         server_socket.listen(device_count)
         server.start_eval(server_socket, test_true)
+    """

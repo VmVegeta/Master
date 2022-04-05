@@ -15,8 +15,11 @@ def start_evaluation(end_device: EndDevice, test_matrix: torch.Tensor):
 
 
 def start_launches(num_devices, output_size, end_devices, train_matrix, test_matrix, train_true, test_true, epochs):
+    #ports = [11203, 11203, 12203, 12203, 13203, 13203, 13203]
+    #device_ids = ['0', '1', '0', '1', '0', '1', '2']
     for device_id in range(num_devices):
-        end_device = EndDevice(str(device_id), output_size, '127.0.0.1', 10200 + output_size)
+        #end_device = EndDevice(device_ids[device_id], output_size, '127.0.0.1', ports[device_id])
+        end_device = EndDevice(str(device_id), output_size, '127.0.0.1', 10203)
         end_devices.append(end_device)
         device_train_matrix = train_matrix[:, device_id]
         device_test_matrix = test_matrix[:, device_id]
@@ -32,12 +35,11 @@ def main(epochs: int, output_size: int):
     num_devices = train_matrix.shape[1]
 
     end_devices = []
-    output_sizes = [8, 16, 32]
+    output_sizes = [16]
     i = 0
     start_launches(num_devices, output_sizes[i], end_devices, train_matrix, test_matrix, train_true, test_true, epochs)
-
-    while i < 2:
-        """
+    """
+    while i < len(output_sizes):
         prompt = input('"exit"/"eval": ')
         if prompt == 'exit':
             exit(-1)
@@ -45,7 +47,6 @@ def main(epochs: int, output_size: int):
             for i in range(num_devices):
                 start_new_thread(start_evaluation, (end_devices[i], test_matrix[:, i]))
         if prompt == 'next':
-        """
 
         server_socket = socket.socket()
         try:
@@ -67,7 +68,7 @@ def main(epochs: int, output_size: int):
         i += 1
         start_launches(num_devices, output_sizes[i], end_devices, train_matrix, test_matrix, train_true,
                        test_true, epochs)
-
+    """
     while True:
         for output_size in output_sizes:
             prompt = input('"exit"/"eval": ')
