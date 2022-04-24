@@ -49,9 +49,11 @@ def windspeed_hjortness():
     matrix, true_value = build_weather_matrix(station_data[:length], 0, values)
     matrix = np.row_stack(matrix)
     df = pd.DataFrame(matrix, columns=['value', 'weekday', 'hour', 'month', 'day', 'year', 'wind'])
-    sns.pairplot(df,
-                 x_vars=['wind'],
-                 y_vars=['value'])
+    #sns.pairplot(df, x_vars=['wind'], y_vars=['value'])
+    plt.scatter(df['wind'], df['value'], edgecolor='white')
+    plt.title("Wind Speed and Air Pollution Relation W. Regression Line")
+    plt.xlabel("Wind Speed m/s")
+    plt.ylabel("NO2 µg/m³")
     create_line(df['wind'].values, df['value'].values, degree=1)
     plt.show()
 

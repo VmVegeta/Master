@@ -86,7 +86,7 @@ class EndDevice(ClientBase):
                 r2_loss_result = r2_loss(predictions, test_true)
                 pred_ee = get_early_exit(ee_p)
         ee = early_exit(predictions, test_true, self.ee_range)
-        acc, count = binary_acc(ee_p, ee)
+        acc, count = binary_accuracy(ee_p, ee)
         print("Eval loss:", loss_result)
         print("Eval R2:", r2_loss_result)
         print("Binary Acc:", acc)

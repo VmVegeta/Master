@@ -21,17 +21,17 @@ def r2_loss(prediction, target):
     return r2
 
 
-def binary_acc(y_pred, y_test):
-    sigmoidScores = torch.sigmoid(y_pred)
-    y_pred_tag = sigmoidScores > 0.7
+def binary_accuracy(predicted_early_exit_score, true_early_exit, score_limit=0.7):
+    sigmoid_scores = torch.sigmoid(predicted_early_exit_score)
+    early_exit_prediction = sigmoid_scores > score_limit
 
-    correct_results_sum = ((y_pred_tag == True) & (y_test == 1.)).sum()
-    total_prediction = (y_pred_tag == True).sum()
+    correct_results_sum = (early_exit_prediction & (true_early_exit == 1.)).sum()
+    total_prediction = early_exit_prediction.sum()
     print("Total EE: ", total_prediction)
-    acc = correct_results_sum / total_prediction
-    acc = torch.round(acc * 10000) / 100
+    accuracy = correct_results_sum / total_prediction
+    accuracy = torch.round(accuracy * 10000) / 100
 
-    return acc, "{:.4f}".format(total_prediction)
+    return accuracy, "{:.4f}".format(total_prediction)
 
 
 def get_early_exit(y_pred, threshold=0.7):

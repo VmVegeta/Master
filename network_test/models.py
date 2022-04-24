@@ -7,10 +7,6 @@ class CloudModule(nn.Module):
     def __init__(self, num_devices: int, output_size: int):
         super(CloudModule, self).__init__()
         self.num_devices = num_devices
-        #self.device_models = []
-        #for _ in range(num_devices):
-        #    self.device_models.append(DeviceModel(in_channels))
-        #self.device_models = nn.ModuleList(self.device_models)
 
         cloud_input_channels = output_size * num_devices
         self.cloud_model = nn.Sequential(
@@ -22,12 +18,6 @@ class CloudModule(nn.Module):
         )
 
     def forward(self, x):
-        """
-        first_dim = x.shape[1]
-        second_dim = x.shape[0] * x.shape[2]
-        x = torch.permute(x, (1, 0, 2))
-        x = torch.reshape(x, (first_dim, second_dim))
-        """
         return self.cloud_model(x)
 
 
