@@ -144,8 +144,8 @@ def predict_parallel_all(station_data: Dict[str, List[Measure]], station_name: s
             continue
         input_data_list.append(input_data)
         station_names.append(measurement_station)
-    matrix, true_values = build_parallel_matrix(result_data, input_data_list, history)
-    matrix, true_values = shuffle_data(matrix, true_values)
+    ordered_matrix, ordered_true_values = build_parallel_matrix(result_data, input_data_list, history)
+    matrix, true_values = shuffle_data(ordered_matrix, ordered_true_values)
 
     #TODO: Change this
     train_matrix, test_matrix = split_set(matrix, 0.7)
@@ -158,10 +158,7 @@ def predict_parallel_all(station_data: Dict[str, List[Measure]], station_name: s
     train_true = torch.tensor(train_true)
     test_true = torch.tensor(test_true)
 
-    #train_loader = create_loader(train_matrix, train_true, batch_size)
-    #test_loader = create_loader(test_matrix, test_true, batch_size)
-
-    return train_matrix, train_true, test_matrix, test_true, station_names
+    return train_matrix, train_true, test_matrix, test_true, station_names, ordered_matrix, ordered_true_values
 
 
 def get_dataset(filename='../data/Hourly_NO2_referencedata_for_Oslo.csv', history=6):

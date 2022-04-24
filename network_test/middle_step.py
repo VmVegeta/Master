@@ -38,20 +38,20 @@ class MiddleDevice(ClientBase):
         parent_pipes = []
         while thread_count < self.device_count:
             client, address = server_socket.accept()
-            print('Connected to: ' + address[0] + ':' + str(address[1]))
+            print('M Connected to: ' + address[0] + ':' + str(address[1]))
             parent_pipe, child_pipe = multiprocessing.Pipe()
             parent_pipes.append(parent_pipe)
             p = multiprocessing.Process(target=handle_function, args=(client, child_pipe))
             jobs.append(p)
             p.start()
             thread_count += 1
-            print('Thread Number: ' + str(thread_count))
+            print('M Thread Number: ' + str(thread_count))
 
         data = [None] * self.device_count
         for parent_pipe in parent_pipes:
             received = parent_pipe.recv()
-            tensor_matrix = torch.tensor(received[1])
-            tensor_matrix = torch.dequantize(tensor_matrix)
+            tensor_matrix = torch.tensor(received[1], dtype=torch.float32)
+            #tensor_matrix = torch.dequantize(tensor_matrix)
             data[int(received[0])] = tensor_matrix
 
         for proc in jobs:
@@ -82,13 +82,13 @@ class MiddleDevice(ClientBase):
 
     def start_eval(self, server_socket, true_value):
         print('Eval Ready')
-        train_data = self.collect_data(server_socket, train_client_thread)
-
-        tensor_matrix = torch.tensor(train_data)
-        tensor_matrix = torch.dequantize(tensor_matrix)
-        output, predictions, ee = self.predict(tensor_matrix)
+        data = self.collect_data(server_socket, train_client_thread)
+        data = torch.concat(data, 1)
+        #tensor_matrix = torch.tensor(data)
+        #tensor_matrix = torch.dequantize(data)
+        output, predictions, ee = self.predict(data)
         self.print_results(predictions, true_value)
-        return output
+        return quantize_data(output)
 
     def predict(self, X):
         self.model.eval()
@@ -112,9 +112,10 @@ class MiddleDevice(ClientBase):
 
         data_dict['train'] = self.wait_and_train(server_socket, optimizer, train_true)
         self.send_data(data_dict)
-        print('Ended: ', self.station_id)
+        print('M Ended: ', self.station_id)
 
-        self.start_eval(server_socket, test_true)
+        data_dict['train'] = self.start_eval(server_socket, test_true)
+        self.send_data(data_dict)
 
     def print_results(self, predictions, true_value):
         true_value = convert_tensor(true_value)
@@ -144,8 +145,6 @@ def train_client_thread(connection, child_pipe):
 
 if __name__ == "__main__":
     train_matrix, train_true, test_matrix, test_true, station_names = get_dataset(history=6)
-    train_ma = train_matrix[:, 0]
-    test_ma = test_matrix[:, 0]
     start_time = time.time()
     md = MiddleDevice('2', 16, 3, '', '127.0.0.1', 13203, 10203)
     md.create(train_true, test_true)
