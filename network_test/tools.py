@@ -4,7 +4,9 @@ from torch.autograd import Variable
 
 
 def quantize_data(output: torch.tensor):
-    return torch.quantize_per_tensor(output, 0.1, 0, torch.quint8).int_repr().tolist()
+    if False:
+        return torch.quantize_per_tensor(output, 0.1, 0, torch.quint8).int_repr().tolist()
+    return output.tolist()
 
 
 def shorten_data(output: torch.tensor):
@@ -21,20 +23,21 @@ def r2_loss(prediction, target):
 
 def binary_acc(y_pred, y_test):
     sigmoidScores = torch.sigmoid(y_pred)
-    #softmaxFunc = nn.Softmax(dim=1)
-    #softmaxScores = softmaxFunc(y_pred)
-    # y_pred_tag = torch.round(test)
     y_pred_tag = sigmoidScores > 0.7
 
-    #correct_results_sum = (y_pred_tag == y_test).sum()
     correct_results_sum = ((y_pred_tag == True) & (y_test == 1.)).sum()
-    #acc = correct_results_sum / y_test.shape[0]
     total_prediction = (y_pred_tag == True).sum()
     print("Total EE: ", total_prediction)
     acc = correct_results_sum / total_prediction
     acc = torch.round(acc * 10000) / 100
 
     return acc, "{:.4f}".format(total_prediction)
+
+
+def get_early_exit(y_pred, threshold=0.7):
+    sigmoidScores = torch.sigmoid(y_pred)
+    ee = sigmoidScores > threshold
+    return ee
 
 
 def early_exit(prediction: torch.Tensor, target: torch.Tensor, acceptable_range: float):

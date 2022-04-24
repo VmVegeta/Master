@@ -17,6 +17,9 @@ class MultiServer:
             self.model.cuda()
         self.host = host
         self.port = port
+        self.file = open("data/server_side_not_quant", "a", encoding="utf-8")
+        self.server_socket = None
+        self.file.write(str(output_size) + '\n')
 
     def launch(self, true_value, test_true):
         server_socket = socket.socket()
@@ -30,8 +33,9 @@ class MultiServer:
         print('Ready to connect')
         server_socket.listen(self.device_count)
         self.wait_and_train(server_socket, optimizer, torch.nn.MSELoss(), true_value)
-        # self.start_eval(server_socket, test_true)
-        server_socket.close()
+        #self.start_eval(server_socket, test_true)
+        #server_socket.close()
+        self.server_socket = server_socket
         print("Socket Close")
 
     def wait_and_train(self, server_socket, optimizer, loss_func, true_value):
@@ -58,8 +62,10 @@ class MultiServer:
         optimizer.step()
 
         if to_print:
+            r2_score = r2_loss(predictions, y)
             print('{:.4f}'.format(loss))
-            print('{:.4f}'.format(r2_loss(predictions, y)))
+            print('{:.4f}'.format(r2_score))
+            self.file.write('{:.4f},{:.4f}\n'.format(loss, r2_score))
 
         return predictions
 
@@ -68,7 +74,9 @@ class MultiServer:
         data = self.collect_data(server_socket, train_client_thread)
         data = torch.concat(data, 1)
         predictions = self.predict(data)
-        print_results(predictions, true_value, torch.nn.MSELoss())
+        self.print_results(predictions, true_value, torch.nn.MSELoss())
+        self.server_socket.close()
+        self.file.close()
 
     def predict(self, X):
         self.model.eval()
@@ -99,7 +107,7 @@ class MultiServer:
                 proc.join()
             """
             tensor_matrix = torch.tensor(data)
-            tensor_matrix = torch.dequantize(tensor_matrix)
+            #tensor_matrix = torch.dequantize(tensor_matrix)
             prediction = self.predict(tensor_matrix)
             print('Predicted value for Bygdø Alle ', datetime, '{:.4f}'.format(prediction))
 
@@ -119,15 +127,28 @@ class MultiServer:
             #print('Thread Number: ' + str(thread_count))
 
         data = [None] * self.device_count
+        data_len = 0
         for parent_pipe in parent_pipes:
             received = parent_pipe.recv()
-            tensor_matrix = torch.tensor(received[1], dtype=torch.int8)
-            tensor_matrix = torch.dequantize(tensor_matrix)
+            tensor_matrix = torch.tensor(received[1], dtype=torch.float32)
+            #tensor_matrix = torch.tensor(received[1], dtype=torch.int8)
+            #tensor_matrix = torch.dequantize(tensor_matrix)
             data[int(received[0])] = tensor_matrix
+            data_len += received[2]
+
+        self.file.write(str(data_len) + '\n')
 
         for proc in jobs:
             proc.join()
         return data
+
+    def print_results(self, predictions, true_value, loss_func):
+        true_value = convert_tensor(true_value)
+        loss = loss_func(predictions, true_value)
+        r2_score = r2_loss(predictions, true_value)
+        print('{:.4f}'.format(loss))
+        print('{:.4f}'.format(r2_score))
+        self.file.write('{:.4f},{:.4f}\n'.format(loss, r2_score))
 
 
 def get_raw_data(connection):
@@ -137,15 +158,16 @@ def get_raw_data(connection):
         if not data:
             break
         json_data += data.decode()
+    data_len = len(json_data)
     data = json.loads(json_data)
     connection.close()
-    return data
+    return data, data_len
 
 
 def train_client_thread(connection, child_pipe):
-    data = get_raw_data(connection)
+    data, data_len = get_raw_data(connection)
     station_id = data['station_id']
-    child_pipe.send((station_id, data['train']))
+    child_pipe.send((station_id, data['train'], data_len))
     #print('Thread done')
 
 
@@ -155,29 +177,22 @@ def infer_client_thread(connection, child_pipe):
     child_pipe.send((station_id, data['infer'], data['datetime']))
 
 
-def print_results(predictions, true_value, loss_func):
-    true_value = convert_tensor(true_value)
-    loss = loss_func(predictions, true_value)
-    print('{:.4f}'.format(loss))
-    print('{:.4f}'.format(r2_loss(predictions, true_value)))
-
-
 if __name__ == '__main__':
-    train_matrix, train_true, test_matrix, test_true, station_names = get_dataset()
-    device_count = 7
+    train_matrix, train_true, test_matrix, test_true, station_names, ordered_matrix, ordered_true_values = get_dataset()
+    ordered_true_values = torch.Tensor(ordered_true_values)
+
+    device_count = 3
+    """
     server = MultiServer(device_count, 16)
     server.launch(train_true, test_true)
     """
-    train_matrix, train_true, test_matrix, test_true, station_names = get_dataset()
-    device_count = 7
-    output_sizes = [16, 32]
+    output_sizes = [1, 1, 2, 2, 32, 64]
+    #              [2, 2, 2, 4, 4, 4, 8, 8, 8, 12, 12, 12, 16, 16, 16, 20, 20, 20, 24, 24, 24, 28, 28, 28, 32, 32, 32, 36, 36, 36, 40, 40, 40, 44, 44, 44, 48, 48, 48, 52, 52, 52, 56, 56, 56, 60, 60, 60, 64, 64, 64]
     servers = []
     for output_size in output_sizes:
-        print(str(output_size))
-        port = 10000 + output_size
-        server = MultiServer(device_count, output_size, port=port)
+        server = MultiServer(device_count, output_size)
         server.launch(train_true, test_true)
-        servers.append(server)
+        #servers.append(server)
 
         s = socket.socket()
         try:
@@ -187,7 +202,16 @@ if __name__ == '__main__':
         except socket.error as e:
             print(str(e))
         s.close()
-
+        server.start_eval(server.server_socket, test_true)
+        s = socket.socket()
+        try:
+            s.connect(('127.0.0.1', 12122))
+            s.sendall(b'next')
+            s.close()
+        except socket.error as e:
+            print(str(e))
+        s.close()
+    """
     for server in servers:
         server_socket = socket.socket()
         try:
