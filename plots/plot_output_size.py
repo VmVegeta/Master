@@ -35,7 +35,7 @@ def get_values(filename):
 
 
 def plot(data: Dict[str, List]):
-    output_sizes = [2, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64]
+    output_sizes = [1, 2, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64]
     losses = []
     for output_size in output_sizes:
         total = data[str(output_size) + '-loss'] + data[str(output_size) + '-loss-eval']
@@ -79,7 +79,7 @@ def plot(data: Dict[str, List]):
         sum_total = sum(total)
         len_total = len(total)
         data_size = sum_total / len_total / 3
-        r2s.append(data_size)
+        r2s.append(r2 / data_size)
 
     plt.plot(output_sizes, r2s)
     plt.title("Accuracy Divided on Amount of Data Sent")
@@ -167,5 +167,5 @@ def handle_default(data, key):
 if __name__ == "__main__":
     nq_data = get_values("../network_test/data/server_side_not_quant")
     data = get_values("../network_test/data/server_side")
-    #plot(nq_data)
-    print_avg(data)
+    plot(nq_data)
+    print_avg(nq_data)

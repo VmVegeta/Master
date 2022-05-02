@@ -24,7 +24,7 @@ def plot_loss(history):
       plt.grid(True)
 
 
-def base_dnn(matrix, true_value, hours=6, set_size=0.5, use_checkpoint=True):
+def base_dnn(matrix, true_value, hours=6, set_size=0.5, use_checkpoint=False):
     matrix, true_value = shuffle_data(matrix, true_value)
 
     x_train, x_test = create_set(matrix, set_size)
@@ -39,7 +39,8 @@ def base_dnn(matrix, true_value, hours=6, set_size=0.5, use_checkpoint=True):
         layers.Embedding(input_dim=x_train.shape[0], input_length=x_train.shape[1], output_dim=30),
         layers.LSTM(64, return_sequences=False, dropout=0.1, recurrent_dropout=0.1),
         layers.Dense(64, activation='relu'),
-        layers.Dropout(0.5),
+        layers.Dense(64, activation='relu'),
+        #layers.Dropout(0.5),
         layers.Dense(hours)
         # ,layers.Lambda(lambda x: tf.where(x < 0, tf.zeros_like(x), x), trainable=False)
     ])

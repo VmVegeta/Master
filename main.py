@@ -5,7 +5,8 @@ from Models.RNN import handle_station_dnn, handle_all_station_dnn, predict_all_s
 
 def main():
     measurements = read_measurements(use_first=False)
-    predict_parallel_all(measurements, 'Bygdøy Alle', 12)
+    predict_all_stations_individually(measurements)
+    #predict_parallel_all(measurements, 'Bygdøy Alle', 12)
     exit(0)
     handle_all_station_dnn(measurements)
     models = []

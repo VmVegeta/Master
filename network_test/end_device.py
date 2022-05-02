@@ -59,10 +59,10 @@ class EndDevice(ClientBase):
         # os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
         data_dict = {"station_id": self.station_id, 'train': []}
-        test_true = convert_tensor(test_true)
         test_matrix = convert_tensor(test_matrix)
         train_matrix = convert_tensor(train_matrix)
         train_true = convert_tensor(train_true)
+        test_true = convert_tensor(test_true)
 
         for epoch in range(1, int(epochs)):
             to_print = epoch == epochs - 1 and self.is_offline
@@ -76,26 +76,27 @@ class EndDevice(ClientBase):
                 output, loss2 = self.early_exit_train(train_matrix, train_true, optimizer, to_print)
                 if to_send:
                     data_dict['train'].append(quantize_data(output))
+        if file is not None or True:
+            with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True) as prof:
+                with record_function("model_train"):
+                    self.model.eval()
+                    output, predictions, ee_p = self.model(test_matrix)
 
-        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True) as prof:
-            with record_function("model_train"):
-                self.model.eval()
-                output, predictions, ee_p = self.model(test_matrix)
+                    loss_result = self.loss_func(predictions, test_true)
+                    r2_loss_result = r2_loss(predictions, test_true)
+                    pred_ee = get_early_exit(ee_p)
+            ee = early_exit(predictions, test_true, self.ee_range)
+            acc, count = binary_accuracy(ee_p, ee)
+            print("Eval loss:", loss_result)
+            print("Eval R2:", r2_loss_result)
+            print("Binary Acc:", acc)
 
-                loss_result = self.loss_func(predictions, test_true)
-                r2_loss_result = r2_loss(predictions, test_true)
-                pred_ee = get_early_exit(ee_p)
-        ee = early_exit(predictions, test_true, self.ee_range)
-        acc, count = binary_accuracy(ee_p, ee)
-        print("Eval loss:", loss_result)
-        print("Eval R2:", r2_loss_result)
-        print("Binary Acc:", acc)
-
-        if file is not None:
-            cuda_time = int(sum([e.self_cuda_time_total for e in prof.profiler.function_events]) / 1000)
-            cuda_memory = math.floor(sum([e.cuda_memory_usage for e in prof.profiler.function_events]) / 1e+7) / 100
-            cpu_memory = math.floor(sum([e.cpu_memory_usage for e in prof.profiler.function_events]) / 1e+4) / 100
-            file.write("{},{},{},{},{},{},{},{},{},{}\n".format(loss, loss2, loss_result, r2_loss_result, acc, count, int(prof.profiler.self_cpu_time_total / 1000), cuda_time, cpu_memory, cuda_memory))
+            cuda_time = sum([event.self_cuda_time_total for event in prof.profiler.function_events])
+            cpu_memory = sum([event.cpu_memory_usage for event in prof.profiler.function_events])
+            cuda_memory = sum([event.cuda_memory_usage for event in prof.profiler.function_events])
+            #file.write("{},{},{},{},{},{},{},{},{},{}\n".format(loss, loss2, loss_result, r2_loss_result, acc, count, prof.profiler.self_cpu_time_total, cuda_time, cpu_memory, cuda_memory))
+            print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+            print(cuda_time)
 
         if not self.is_offline:
             self.send_data(data_dict)
@@ -104,21 +105,19 @@ class EndDevice(ClientBase):
 
 if __name__ == "__main__":
     train_matrix, train_true, test_matrix, test_true, sn, t, d = get_dataset(history=6)
-    #file = open("data/end_device_lr_test", "a", encoding="utf-8")
+    file = open("data/end_device_perf_w", "a", encoding="utf-8")
     start_time = time.time()
+
     """
-    lrs = [0.01, 0.005, 0.001, 0.0005]
-    for lr in lrs:
-        file.write('2epoch lr' + str(lr) + '\n')
+    for _ in range(10):
         for i in range(train_matrix.size(dim=1)):
             train_ma = train_matrix[:, i]
             test_ma = test_matrix[:, i]
-            ed = EndDevice('0', 16, '127.0.0.1', 10203, is_offline=True)
-            ed.create(100, train_ma, train_true, test_ma, test_true, file=file, lr=lr)
-        for i in range(train_matrix.size(dim=1)):
+            ed = EndDevice('0', 8, '127.0.0.1', 10203, is_offline=True)
+            ed.create(100, train_ma, train_true, test_ma, test_true, file=file)
     """
     train_ma = train_matrix[:, 0]
     test_ma = test_matrix[:, 0]
-    ed = EndDevice('0', 16, '127.0.0.1', 10203, is_offline=True)
+    ed = EndDevice('0', 8, '127.0.0.1', 10203, is_offline=True)
     ed.create(100, train_ma, train_true, test_ma, test_true)
     print('Time: ', time.time() - start_time)

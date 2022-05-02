@@ -2,11 +2,10 @@ import multiprocessing
 import socket
 import json
 
-import torch
-
 from network_test.models import CloudModule
 from network_test.pollution_dataset import get_dataset
 from network_test.tools import *
+from torch.profiler import profile, record_function, ProfilerActivity
 
 
 class MultiServer:
@@ -17,9 +16,9 @@ class MultiServer:
             self.model.cuda()
         self.host = host
         self.port = port
-        self.file = open("data/server_side_not_quant", "a", encoding="utf-8")
+        self.file = open("data/server_side_perf", "a", encoding="utf-8")
         self.server_socket = None
-        self.file.write(str(output_size) + '\n')
+        # self.file.write(str(output_size) + '\n')
 
     def launch(self, true_value, test_true):
         server_socket = socket.socket()
@@ -65,16 +64,28 @@ class MultiServer:
             r2_score = r2_loss(predictions, y)
             print('{:.4f}'.format(loss))
             print('{:.4f}'.format(r2_score))
-            self.file.write('{:.4f},{:.4f}\n'.format(loss, r2_score))
+            self.file.write('{:.4f},{:.4f},'.format(loss, r2_score))
 
         return predictions
 
     def start_eval(self, server_socket, true_value):
         print('Eval Ready')
-        data = self.collect_data(server_socket, train_client_thread)
-        data = torch.concat(data, 1)
-        predictions = self.predict(data)
-        self.print_results(predictions, true_value, torch.nn.MSELoss())
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True) as prof:
+            with record_function("model_eval"):
+                data = self.collect_data(server_socket, train_client_thread)
+                data = torch.concat(data, 1)
+                predictions = self.predict(data)
+                loss, r2_score = get_results(predictions, true_value, torch.nn.MSELoss())
+
+
+        print('{:.4f}'.format(loss))
+        print('{:.4f}'.format(r2_score))
+        self.file.write('{:.4f},{:.4f},'.format(loss, r2_score))
+        cuda_time = sum([event.self_cuda_time_total for event in prof.profiler.function_events])
+        cpu_memory = sum([event.cpu_memory_usage for event in prof.profiler.function_events])
+        cuda_memory = sum([event.cuda_memory_usage for event in prof.profiler.function_events])
+        self.file.write('{},{},{},{}\n'.format(prof.profiler.self_cpu_time_total, cuda_time, cpu_memory, cuda_memory))
+
         self.server_socket.close()
         self.file.close()
 
@@ -136,19 +147,18 @@ class MultiServer:
             data[int(received[0])] = tensor_matrix
             data_len += received[2]
 
-        self.file.write(str(data_len) + '\n')
+        #self.file.write(str(data_len) + '\n')
 
         for proc in jobs:
             proc.join()
         return data
 
-    def print_results(self, predictions, true_value, loss_func):
-        true_value = convert_tensor(true_value)
-        loss = loss_func(predictions, true_value)
-        r2_score = r2_loss(predictions, true_value)
-        print('{:.4f}'.format(loss))
-        print('{:.4f}'.format(r2_score))
-        self.file.write('{:.4f},{:.4f}\n'.format(loss, r2_score))
+
+def get_results(predictions, true_value, loss_func):
+    true_value = convert_tensor(true_value)
+    loss = loss_func(predictions, true_value)
+    r2_score = r2_loss(predictions, true_value)
+    return loss, r2_score
 
 
 def get_raw_data(connection):
@@ -186,17 +196,17 @@ if __name__ == '__main__':
     server = MultiServer(device_count, 16)
     server.launch(train_true, test_true)
     """
-    output_sizes = [1, 1, 2, 2, 32, 64]
+    output_sizes = [8] * 5
     #              [2, 2, 2, 4, 4, 4, 8, 8, 8, 12, 12, 12, 16, 16, 16, 20, 20, 20, 24, 24, 24, 28, 28, 28, 32, 32, 32, 36, 36, 36, 40, 40, 40, 44, 44, 44, 48, 48, 48, 52, 52, 52, 56, 56, 56, 60, 60, 60, 64, 64, 64]
     servers = []
     for output_size in output_sizes:
-        server = MultiServer(device_count, output_size)
+        server = MultiServer(device_count, output_size, host="0.0.0.0")
         server.launch(train_true, test_true)
         #servers.append(server)
 
         s = socket.socket()
         try:
-            s.connect(('127.0.0.1', 12122))
+            s.connect(("192.168.0.104", 12122))
             s.sendall(b'next')
             s.close()
         except socket.error as e:
@@ -205,7 +215,7 @@ if __name__ == '__main__':
         server.start_eval(server.server_socket, test_true)
         s = socket.socket()
         try:
-            s.connect(('127.0.0.1', 12122))
+            s.connect(("192.168.0.104", 12122))
             s.sendall(b'next')
             s.close()
         except socket.error as e:

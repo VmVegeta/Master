@@ -3,6 +3,7 @@ from network_test.models import NnLayer
 from network_test.pollution_dataset import get_dataset
 import time
 from client_base import *
+from torch.profiler import profile, record_function, ProfilerActivity
 
 
 class MiddleModel(nn.Module):
@@ -25,12 +26,13 @@ class MiddleModel(nn.Module):
 
 
 class MiddleDevice(ClientBase):
-    def __init__(self, station_id: str, output_size: int, device_count: int, address: str, server_address: str, port: int, server_port: int, ee_range=8):
+    def __init__(self, station_id: str, output_size: int, device_count: int, address: str, server_address: str, port: int, server_port: int, ee_range=8, file=None):
         model = MiddleModel(output_size, device_count)
         super().__init__(model, station_id, output_size, server_address, server_port, ee_range)
         self.address = address
         self.port = port
         self.device_count = device_count
+        self.file = file
 
     def collect_data(self, server_socket, handle_function):
         thread_count = 0
@@ -78,10 +80,12 @@ class MiddleDevice(ClientBase):
             output, loss = self.train(X, y, optimizer, is_last)
             if is_last:
                 outputs.append(quantize_data(output))
+                if self.file is not None:
+                    self.file.write("{:.4f},".format(loss))
         return outputs
 
     def start_eval(self, server_socket, true_value):
-        print('Eval Ready')
+        #print('Eval Ready')
         data = self.collect_data(server_socket, train_client_thread)
         data = torch.concat(data, 1)
         #tensor_matrix = torch.tensor(data)
@@ -114,14 +118,31 @@ class MiddleDevice(ClientBase):
         self.send_data(data_dict)
         print('M Ended: ', self.station_id)
 
-        data_dict['train'] = self.start_eval(server_socket, test_true)
+        test_true = convert_tensor(test_true)
+
+        if self.file is not None:
+            with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True) as prof:
+                with record_function("model_train"):
+                    data_dict['train'] = self.start_eval(server_socket, test_true)
+
+            cuda_time = sum([event.self_cuda_time_total for event in prof.profiler.function_events])
+            cpu_memory = sum([event.cpu_memory_usage for event in prof.profiler.function_events])
+            cuda_memory = sum([event.cuda_memory_usage for event in prof.profiler.function_events])
+            file.write("{},{},{},{}\n".format(prof.profiler.self_cpu_time_total, cuda_time, cpu_memory, cuda_memory))
+        else:
+            data_dict['train'] = self.start_eval(server_socket, test_true)
+
         self.send_data(data_dict)
+        server_socket.close()
 
     def print_results(self, predictions, true_value):
-        true_value = convert_tensor(true_value)
         loss = self.loss_func(predictions, true_value)
+        r2 = r2_loss(predictions, true_value)
+        """
         print('{:.4f}'.format(loss))
-        print('{:.4f}'.format(r2_loss(predictions, true_value)))
+        print('{:.4f}'.format(r2))
+        self.file.write("{:.4f},{:.4f},".format(loss, r2))
+        """
 
 
 def get_raw_data(connection):
@@ -144,8 +165,12 @@ def train_client_thread(connection, child_pipe):
 
 
 if __name__ == "__main__":
-    train_matrix, train_true, test_matrix, test_true, station_names = get_dataset(history=6)
-    start_time = time.time()
-    md = MiddleDevice('2', 16, 3, '', '127.0.0.1', 13203, 10203)
-    md.create(train_true, test_true)
-    print('Time: ', time.time() - start_time)
+    train_matrix, train_true, test_matrix, test_true, station_names, w, e = get_dataset(history=6)
+    #start_time = time.time()
+    file = open("data/middle_pref2.txt", "a")
+    for _ in range(10):
+        md = MiddleDevice('0', 8, 2, '0.0.0.0', '192.168.0.104', 11203, 10203, file=file)
+        md.create(train_true, test_true)
+    file.close()
+
+    #print('Time: ', time.time() - start_time)
