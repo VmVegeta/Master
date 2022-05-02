@@ -7,8 +7,8 @@ import numpy as np
 
 
 def get_values(filename, name):
-    columns = ['Type', 'MSE-Loss', 'R2', 'MSE-Loss-Eval', 'Eval-R2', 'CPU-Time', 'CUDA-Time', 'CPU-Memory', 'CUDA-Memory']
-    columns = ['MSE-Loss', 'R2', 'MSE-Loss-Eval', 'Eval-R2', 'CPU-Time', 'CUDA-Time', 'CPU-Memory', 'CUDA-Memory']
+    columns = ['Type', 'MSE-Loss', 'R2', 'MSE', 'Eval-R2', 'CPU-Time', 'CUDA-Time', 'CPU-Memory', 'CUDA-Memory']
+    #columns = ['MSE-Loss', 'R2', 'MSE-Loss-Eval', 'Eval-R2', 'CPU-Time', 'CUDA-Time', 'CPU-Memory', 'CUDA-Memory']
     data = pd.DataFrame(columns=columns)
     with open(filename, mode="r", encoding="utf-8") as f:
         for line in f.readlines():
@@ -19,8 +19,8 @@ def get_values(filename, name):
             for i in range(4, 8):
                 values[i] = int(values[i])
 
-            #values = [[name] + values]
-            values = [values]
+            values = [[name] + values]
+            #values = [values]
 
             test = pd.DataFrame(values, columns=columns)
             data = pd.concat([data, test])
@@ -77,8 +77,8 @@ def get_end_values(filename, name):
     return data
 
 
-def show_data(dist, cent):
-    data = pd.concat([dist, cent])
+def show_data(df_list):
+    data = pd.concat(df_list)
     sns.boxplot(x="Type", y="MSE", data=data)
     plt.ylim((0, 135))
     plt.title("Box-Plot Distributed and Centralized Train-Set MSE")
@@ -86,8 +86,8 @@ def show_data(dist, cent):
     plt.show()
 
 
-def show_eval_data(dist, cent):
-    data = pd.concat([dist, cent])
+def show_eval_data(df_list):
+    data = pd.concat(df_list)
     sns.boxplot(x="Type", y="MSE", data=data)
     plt.ylim((0, 250))
     plt.title("Box-Plot Distributed and Centralized Eval-Set MSE")
@@ -158,11 +158,22 @@ def create_bar_graph(center, server, middle, end, column_name):
 
 
 if __name__ == '__main__':
+    center_d = get_values("../centerlized/centralized_data_default", "Default")
+    center = get_values("../centerlized/centralized_data", "Center")
+    center_pr8 = get_values("../centerlized/prev_8", "Prev 8")
+    center_pr = get_values("../centerlized/centralized_data_prev12", "Prev 12")
+    center_pr16 = get_values("../centerlized/prev_16", "Prev 16")
+    center_pr24 = get_values("../centerlized/centralized_data_prev24", "Prev 24")
+
+    df_list = [center, center_d, center_pr8, center_pr, center_pr16, center_pr24]
+    show_eval_data(df_list)
+    """
     server_side = get_values("../network_test/data/server_side_perf", "Cloud")
     middle = get_middle_values("../network_test/data/middle_pref2.txt", "Middle")
     end = get_end_values("../network_test/data/end_device_perf_w", "End")
     end_wo = get_end_values("../network_test/data/end_device_perf", "End")
-    center = get_values("../centerlized/centralized_data", "Center")
+    
+    
     #describe(server_side)
     #describe(middle)
     describe(end)
@@ -173,3 +184,4 @@ if __name__ == '__main__':
     create_bar_graph(center, server_side, middle, end, name)
     print(center[name].mean())
     #show_eval_data(server_side, center)
+    """

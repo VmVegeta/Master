@@ -124,6 +124,65 @@ def build_parallel_matrix(result_list: List[Measure], input_data_list: List[List
     return matrixes, true_value
 
 
+def build_default_matrix(result_list: List[Measure], input_data_list: List[List[Measure]], history=6):
+    """
+        Function to build input matrixes for each station and a list of true values.
+        The matrixes contains a measurement for every hour back based the size of history args.
+        It will only return valid matrixes, valid matrixes where all hours in history of all
+        stations has valid measurements and target station has valid measurement.
+
+        Args:
+            result_list (List[Measure]): A list of measurement object for the target station
+            input_data_list (List[List[Measure]]): A list of all measurement objects for all
+                stations except the target station
+            history (int): The number of hours to go back in history for sequence
+    """
+    length_idl = len(input_data_list)
+
+    # List of indexes to keep current position in stations measurements
+    indexes = []
+    while len(indexes) < length_idl:
+        indexes.append(0)
+
+    matrixes = []
+    true_value = []
+    for predict_measurement in result_list:
+        current_datetime = predict_measurement.datetime
+        matrix = []
+        for station_index, input_data in enumerate(input_data_list):
+            single_input = []
+            while True:
+                # Gets measurement of index if index is within range of list
+                measurement = input_data[indexes[station_index]] if indexes[station_index] < len(input_data) else None
+                # Breaks if out of index
+                if measurement is None:
+                    break
+
+                # Breaks if measurement of station is ahead of current target measurement
+                if current_datetime < measurement.datetime:
+                    break
+
+                if current_datetime == measurement.datetime:
+                    matrix.append([measurement.value,
+                        measurement.weekday,
+                        measurement.hour,
+                        measurement.month,
+                        measurement.day,
+                        measurement.year])
+
+                    indexes[station_index] += 1
+                    break
+                indexes[station_index] += 1
+
+        # Add to matrixes and true value if matrix for all stations added
+        if len(matrix) == length_idl:
+            matrixes.append(matrix)
+            true_value.append([predict_measurement.value])
+
+    print(len(true_value))
+    return matrixes, true_value
+
+
 def create_loader(input, true, batch_size):
     train_matrix, train_true = Variable(input), Variable(true)
     torch_dataset = data.TensorDataset(train_matrix, train_true)
@@ -134,7 +193,7 @@ def create_loader(input, true, batch_size):
         shuffle=True)
 
 
-def predict_parallel_all(station_data: Dict[str, List[Measure]], station_name: str, history=6):
+def predict_parallel_all(station_data: Dict[str, List[Measure]], station_name: str, history=6, is_not_parallel=False):
     result_data = station_data[station_name]
     input_data_list = []
     station_names = []
@@ -144,10 +203,12 @@ def predict_parallel_all(station_data: Dict[str, List[Measure]], station_name: s
             continue
         input_data_list.append(input_data)
         station_names.append(measurement_station)
-    ordered_matrix, ordered_true_values = build_parallel_matrix(result_data, input_data_list, history)
+    if is_not_parallel:
+        ordered_matrix, ordered_true_values = build_default_matrix(result_data, input_data_list, history)
+    else:
+        ordered_matrix, ordered_true_values = build_parallel_matrix(result_data, input_data_list, history)
     matrix, true_values = shuffle_data(ordered_matrix, ordered_true_values)
 
-    #TODO: Change this
     train_matrix, test_matrix = split_set(matrix, 0.7)
     train_true, test_true = split_set(true_values, 0.7)
     #test_matrix, rest = split_set(test_matrix, 0.5)
@@ -161,11 +222,11 @@ def predict_parallel_all(station_data: Dict[str, List[Measure]], station_name: s
     return train_matrix, train_true, test_matrix, test_true, station_names, ordered_matrix, ordered_true_values
 
 
-def get_dataset(filename='../data/Hourly_NO2_referencedata_for_Oslo.csv', history=6):
+def get_dataset(filename='../data/Hourly_NO2_referencedata_for_Oslo.csv', history=6, is_not_parallel=False):
     station_data = read_measurements(use_first=False, filename=filename)
-    return predict_parallel_all(station_data, 'Bygdøy Alle', history)
+    return predict_parallel_all(station_data, 'Bygdøy Alle', history, is_not_parallel)
 
 
 if __name__ == '__main__':
-    station_data = read_measurements(use_first=False, filename='Hourly_NO2_referencedata_for_Oslo.csv')
-    predict_parallel_all(station_data, 'Bygdøy Alle', 64)
+    station_data = read_measurements(use_first=False, filename='../data/Hourly_NO2_referencedata_for_Oslo.csv')
+    predict_parallel_all(station_data, 'Bygdøy Alle', 64, True)
