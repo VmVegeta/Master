@@ -52,6 +52,7 @@ class MiddleDevice(ClientBase):
         data = [None] * self.device_count
         for parent_pipe in parent_pipes:
             received = parent_pipe.recv()
+            print(len(received))
             tensor_matrix = torch.tensor(received[1], dtype=torch.float32)
             #tensor_matrix = torch.dequantize(tensor_matrix)
             data[int(received[0])] = tensor_matrix

@@ -6,8 +6,8 @@ import pandas as pd
 import numpy as np
 import datetime
 from tools import count_img_pixels
-from sklearn import linear_model
-from sklearn.preprocessing import PolynomialFeatures
+#from sklearn import linear_model
+#from sklearn.preprocessing import PolynomialFeatures
 
 
 def main():
@@ -20,9 +20,9 @@ def main():
     matrix = np.row_stack(matrix)
     df = pd.DataFrame(matrix, columns=['value', 'weekday', 'hour', 'month', 'day', 'year', 'rain'])
     sns.pairplot(df,
-        x_vars=['rain'],
+        x_vars=['weekday', 'hour', 'month', 'day', 'year'],
         y_vars=["value"])
-    create_line(df['rain'].values, df['value'].values)
+    #create_line(df['rain'].values, df['value'].values)
     plt.show()
     #display(df)
 
@@ -94,4 +94,5 @@ def create_line(x, y, degree=2):
 
 
 if __name__ == '__main__':
-    windspeed_hjortness()
+    main()
+    #windspeed_hjortness()

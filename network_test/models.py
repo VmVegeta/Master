@@ -8,7 +8,7 @@ class CloudModule(nn.Module):
         super(CloudModule, self).__init__()
         self.num_devices = num_devices
 
-        cloud_input_channels = output_size * num_devices
+        cloud_input_channels = output_size * num_devices# + 5
         self.cloud_model = nn.Sequential(
             NnLayer(cloud_input_channels, 128),
             NnLayer(128, 128),

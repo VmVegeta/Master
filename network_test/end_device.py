@@ -53,7 +53,18 @@ class EndDevice(ClientBase):
             print('{:.4f}'.format(loss))
         return output, loss
 
-    def create(self, epochs, train_matrix, train_true, test_matrix, test_true, file=None, lr=0.008):
+    def infer(self, test_matrix, threshold=0.7):
+        self.model.eval()
+        output, predictions, ee_p = self.model(test_matrix)
+        predicted_ee = get_early_exit(ee_p, threshold)
+        data_dict = {"station_id": self.station_id, 'train': []}
+        if predicted_ee:
+            data_dict['exit'] = predictions[0]
+        else:
+            data_dict['train'].append(quantize_data(output))
+        self.send_data(output)
+
+    def create(self, epochs, train_matrix, train_true, test_matrix, test_true, file=None, lr=0.008, threshold=0.7):
         print('Started: ', self.station_id)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         # os.makedirs(os.path.dirname(model_path), exist_ok=True)
@@ -84,19 +95,21 @@ class EndDevice(ClientBase):
 
                     loss_result = self.loss_func(predictions, test_true)
                     r2_loss_result = r2_loss(predictions, test_true)
-                    pred_ee = get_early_exit(ee_p)
-            ee = early_exit(predictions, test_true, self.ee_range)
-            acc, count = binary_accuracy(ee_p, ee)
+                    #pred_ee = get_early_exit(ee_p) #To simulate the pred_ee
+                    ee = early_exit(predictions, test_true, self.ee_range)
+                    acc, count = binary_accuracy(ee_p, ee, threshold)
+            """
             print("Eval loss:", loss_result)
             print("Eval R2:", r2_loss_result)
             print("Binary Acc:", acc)
-
+            """
+            #file.write("{},{},{},{},{},{}\n".format(loss, loss2, loss_result, r2_loss_result, acc, count))
             cuda_time = sum([event.self_cuda_time_total for event in prof.profiler.function_events])
-            cpu_memory = sum([event.cpu_memory_usage for event in prof.profiler.function_events])
-            cuda_memory = sum([event.cuda_memory_usage for event in prof.profiler.function_events])
+            #cpu_memory = sum([event.self_cpu_memory_usage for event in prof.profiler.function_events])
+            #cuda_memory = sum([event.self_cuda_memory_usage for event in prof.profiler.function_events])
             #file.write("{},{},{},{},{},{},{},{},{},{}\n".format(loss, loss2, loss_result, r2_loss_result, acc, count, prof.profiler.self_cpu_time_total, cuda_time, cpu_memory, cuda_memory))
-            print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
-            print(cuda_time)
+            #print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+            #print(cuda_time)
 
         if not self.is_offline:
             self.send_data(data_dict)
@@ -104,17 +117,24 @@ class EndDevice(ClientBase):
 
 
 if __name__ == "__main__":
-    train_matrix, train_true, test_matrix, test_true, sn, t, d = get_dataset(history=6)
-    file = open("data/end_device_perf_w", "a", encoding="utf-8")
+    train_matrix, train_true, test_matrix, test_true, sn, _, _, _, _ = get_dataset(history=6)
+    #file = open("data/ee_train_one_after_parallel", "a", encoding="utf-8")
     start_time = time.time()
-
     """
-    for _ in range(10):
-        for i in range(train_matrix.size(dim=1)):
-            train_ma = train_matrix[:, i]
-            test_ma = test_matrix[:, i]
-            ed = EndDevice('0', 8, '127.0.0.1', 10203, is_offline=True)
-            ed.create(100, train_ma, train_true, test_ma, test_true, file=file)
+    ranges = [4, 8, 10, 16]
+    ranges = [16]
+    thresholds = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+    thresholds = [0.9, 0.95]
+
+    for ee in ranges:
+        for threshold in thresholds:
+            file.write("range_" + str(ee) + "threshold_" + str(threshold) + "\n")
+            for _ in range(16):
+                for i in range(train_matrix.size(dim=1)):
+                    train_ma = train_matrix[:, i]
+                    test_ma = test_matrix[:, i]
+                    ed = EndDevice('0', 8, '127.0.0.1', 10203, is_offline=True, ee_range=ee)
+                    ed.create(100, train_ma, train_true, test_ma, test_true, file=file, threshold=threshold)
     """
     train_ma = train_matrix[:, 0]
     test_ma = test_matrix[:, 0]

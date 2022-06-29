@@ -50,6 +50,12 @@ def shuffle_data(matrix, true_values):
 
     return matrix, true_values
 
+def shuffle_data_short(matrix):
+    random.seed(2022)
+    random.shuffle(matrix)
+
+    return matrix
+
 
 def build_parallel_matrix(result_list: List[Measure], input_data_list: List[List[Measure]], history=6):
     """
@@ -72,6 +78,7 @@ def build_parallel_matrix(result_list: List[Measure], input_data_list: List[List
         indexes.append(0)
 
     matrixes = []
+    test = []
     true_value = []
     for predict_measurement in result_list:
         current_datetime = predict_measurement.datetime
@@ -118,10 +125,15 @@ def build_parallel_matrix(result_list: List[Measure], input_data_list: List[List
         # Add to matrixes and true value if matrix for all stations added
         if len(matrix) == length_idl:
             matrixes.append(matrix)
+            test.append([predict_measurement.weekday,
+                        predict_measurement.hour,
+                        predict_measurement.month,
+                        predict_measurement.day,
+                        predict_measurement.year])
             true_value.append([predict_measurement.value])
 
     print(len(true_value))
-    return matrixes, true_value
+    return matrixes, true_value, test
 
 
 def build_default_matrix(result_list: List[Measure], input_data_list: List[List[Measure]], history=6):
@@ -205,21 +217,24 @@ def predict_parallel_all(station_data: Dict[str, List[Measure]], station_name: s
         station_names.append(measurement_station)
     if is_not_parallel:
         ordered_matrix, ordered_true_values = build_default_matrix(result_data, input_data_list, history)
+        train_input, test_input = None, None
     else:
-        ordered_matrix, ordered_true_values = build_parallel_matrix(result_data, input_data_list, history)
-    matrix, true_values = shuffle_data(ordered_matrix, ordered_true_values)
+        ordered_matrix, ordered_true_values, test = build_parallel_matrix(result_data, input_data_list, history)
+        test = shuffle_data_short(test)
+        train_input, test_input = split_set(test, 0.7)
+        train_input = torch.tensor(train_input)
+        test_input = torch.tensor(test_input)
 
+    matrix, true_values = shuffle_data(ordered_matrix, ordered_true_values)
     train_matrix, test_matrix = split_set(matrix, 0.7)
     train_true, test_true = split_set(true_values, 0.7)
-    #test_matrix, rest = split_set(test_matrix, 0.5)
-    #test_true, rest = split_set(test_true, 0.5)
 
     train_matrix = torch.tensor(train_matrix)
     test_matrix = torch.tensor(test_matrix)
     train_true = torch.tensor(train_true)
     test_true = torch.tensor(test_true)
 
-    return train_matrix, train_true, test_matrix, test_true, station_names, ordered_matrix, ordered_true_values
+    return train_matrix, train_true, test_matrix, test_true, station_names, ordered_matrix, ordered_true_values, train_input, test_input
 
 
 def get_dataset(filename='../data/Hourly_NO2_referencedata_for_Oslo.csv', history=6, is_not_parallel=False):

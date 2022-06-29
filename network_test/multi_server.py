@@ -20,7 +20,7 @@ class MultiServer:
         self.server_socket = None
         # self.file.write(str(output_size) + '\n')
 
-    def launch(self, true_value, test_true):
+    def launch(self, true_value, test_true, train_late_input):
         server_socket = socket.socket()
         try:
             server_socket.bind((self.host, self.port))
@@ -31,16 +31,18 @@ class MultiServer:
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.008)
         print('Ready to connect')
         server_socket.listen(self.device_count)
-        self.wait_and_train(server_socket, optimizer, torch.nn.MSELoss(), true_value)
+        self.wait_and_train(server_socket, optimizer, torch.nn.MSELoss(), true_value, train_late_input)
         #self.start_eval(server_socket, test_true)
         #server_socket.close()
         self.server_socket = server_socket
         print("Socket Close")
 
-    def wait_and_train(self, server_socket, optimizer, loss_func, true_value):
-        train_data = self.collect_data(server_socket, train_client_thread)
+    def wait_and_train(self, server_socket, optimizer, loss_func, true_value, train_late_input):
+        testing = self.collect_data(server_socket, train_client_thread)
+        #For å fikse dette må jeg fikse slik at dataen er i dim 2
+        #train_data.append(train_late_input)
 
-        train_data = torch.concat(train_data, 2)
+        train_data = torch.concat(testing, 2)
         true_value = convert_tensor(true_value)
         train_data = convert_tensor(train_data)
         epochs = 300
@@ -68,11 +70,12 @@ class MultiServer:
 
         return predictions
 
-    def start_eval(self, server_socket, true_value):
+    def start_eval(self, server_socket, true_value, test_late_input):
         print('Eval Ready')
         with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True) as prof:
             with record_function("model_eval"):
                 data = self.collect_data(server_socket, train_client_thread)
+                #data.append(test_late_input)
                 data = torch.concat(data, 1)
                 predictions = self.predict(data)
                 loss, r2_score = get_results(predictions, true_value, torch.nn.MSELoss())
@@ -188,7 +191,7 @@ def infer_client_thread(connection, child_pipe):
 
 
 if __name__ == '__main__':
-    train_matrix, train_true, test_matrix, test_true, station_names, ordered_matrix, ordered_true_values = get_dataset()
+    train_matrix, train_true, test_matrix, test_true, station_names, ordered_matrix, ordered_true_values, train_late_input, test_late_input = get_dataset()
     ordered_true_values = torch.Tensor(ordered_true_values)
 
     device_count = 3
@@ -196,26 +199,27 @@ if __name__ == '__main__':
     server = MultiServer(device_count, 16)
     server.launch(train_true, test_true)
     """
-    output_sizes = [8] * 5
+    output_sizes = [8]
     #              [2, 2, 2, 4, 4, 4, 8, 8, 8, 12, 12, 12, 16, 16, 16, 20, 20, 20, 24, 24, 24, 28, 28, 28, 32, 32, 32, 36, 36, 36, 40, 40, 40, 44, 44, 44, 48, 48, 48, 52, 52, 52, 56, 56, 56, 60, 60, 60, 64, 64, 64]
     servers = []
     for output_size in output_sizes:
         server = MultiServer(device_count, output_size, host="0.0.0.0")
-        server.launch(train_true, test_true)
+        server.launch(train_true, test_true, train_late_input)
         #servers.append(server)
 
         s = socket.socket()
+        #"192.168.0.104"
         try:
-            s.connect(("192.168.0.104", 12122))
+            s.connect(("127.0.0.1", 12122))
             s.sendall(b'next')
             s.close()
         except socket.error as e:
             print(str(e))
         s.close()
-        server.start_eval(server.server_socket, test_true)
+        server.start_eval(server.server_socket, test_true, test_late_input)
         s = socket.socket()
         try:
-            s.connect(("192.168.0.104", 12122))
+            s.connect(("127.0.0.1", 12122))
             s.sendall(b'next')
             s.close()
         except socket.error as e:

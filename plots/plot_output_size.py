@@ -1,3 +1,4 @@
+import json
 from typing import Dict, List
 import matplotlib.pyplot as plt
 
@@ -164,8 +165,17 @@ def handle_default(data, key):
         data[key] = []
 
 
+def test_byte_size():
+   stuff = '90.6378023197'
+   data = json.dumps(stuff, separators=(',', ':'))
+   encode = data.encode()
+   print(len(encode))
+
+
 if __name__ == "__main__":
     nq_data = get_values("../network_test/data/server_side_not_quant")
     data = get_values("../network_test/data/server_side")
-    plot(nq_data)
+    #plot(nq_data)
     print_avg(nq_data)
+    print_avg(data)
+    test_byte_size()
